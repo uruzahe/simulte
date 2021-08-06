@@ -26,6 +26,14 @@ simple Mode4App like Mode4BaseApp
         double period @unit("s") = default(0.1s);
         int macNodeId = default(0);
         
+        // ----- Begin My Params -----
+        bool sendBeacons = default(true);
+        bool sendCPM = default(false);
+        double carlaTimeStep = default(0.1s) @unit(s);
+        string carlaVeinsDataDir = default("/vagrant/carla-veins-data/");
+        bool is_dynamic_simulation = default(false);
+        // ----- End My Params -----
+        
         @signal[sentMsg];
         @statistic[sentMsg](title="Messages sent"; unit=""; source="sentMsg"; record=sum,vector);
         @signal[delay];

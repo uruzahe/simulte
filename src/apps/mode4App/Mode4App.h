@@ -22,6 +22,24 @@
 #ifndef _LTE_MODE4APP_H_
 #define _LTE_MODE4APP_H_
 
+// My Code, Begin.
+#include "veins_inet/veins_inet.h"
+#include "veins/modules/mobility/traci/TraCIMobility.h"
+#include "veins_inet/VeinsInetMobility.h"
+#include "apps/cpm/VeinsCarlaCpm_m.h"
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <iostream>
+#include <fstream>
+#include <vector>
+
+using veins::TraCIMobility;
+
+// My Code, End.
+
 #include "apps/mode4App/Mode4BaseApp.h"
 #include "apps/alert/AlertPacket_m.h"
 #include "corenetwork/binder/LteBinder.h"
@@ -80,6 +98,27 @@ protected:
     * @param pkt Packet to send
     */
    void sendLowerPackets(cPacket* pkt);
+
+   // My Code, Begin
+   virtual void syncCarlaVeinsData(cMessage* msg);
+
+   veins::VeinsInetMobility* mobility;
+
+   std::string carlaVeinsDataDir;
+   bool is_dynamic_simulation;
+   bool sendCPM;
+   bool sendBeacons;
+   cMessage* sendCPMEvt;
+   double carlaTimeStep;
+   std::string sumo_id;
+   std::vector<std::string> obtainedCPMs;
+   std::vector<std::string> reservedCPMs;
+   std::string veinsLockFile;
+   std::string veinsTxtFile;
+
+   uint32_t generatedCPMs;
+   uint32_t receivedCPMs;
+   // My Code, End
 
 };
 
