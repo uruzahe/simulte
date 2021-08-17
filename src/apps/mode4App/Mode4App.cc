@@ -133,6 +133,8 @@ void Mode4App::initialize(int stage)
         else {
             mobility = nullptr;
         }
+
+        UmTxEntityPtr = nullptr;
         // ----- End My Code -----
 
     } else if (stage==inet::INITSTAGE_APPLICATION_LAYER) {
@@ -196,8 +198,8 @@ void Mode4App::handleLowerMessage(cMessage* msg)
             simtime_t delay = simTime() - cpm->getTimestamp();
             emit(delay_, delay);
             emit(rcvdMsg_, (long)1);
-//            std::cout << sumo_id << " received cpm messages" << std::endl;
-//            std::cout << "payloads: " << cpm->getPayload() << std::endl;
+            // std::cout << sumo_id << " received cpm messages" << std::endl;
+            // std::cout << "payloads: " << cpm->getPayload() << std::endl;
             EV << "Mode4App::handleMessage - CPM Packet received: SeqNo[" << cpm->getSno() << "] Delay[" << delay << "]" << endl;
         } // ----- End My Code -----
         else {
@@ -230,6 +232,8 @@ void Mode4App::handleSelfMessage(cMessage* msg)
             packet->setByteLength(size_);
             packet->setSno(nextSno_);
 
+            nextSno_++;
+
             auto lteControlInfo = new FlowControlInfoNonIp();
 
             lteControlInfo->setSrcAddr(nodeId_);
@@ -245,7 +249,6 @@ void Mode4App::handleSelfMessage(cMessage* msg)
             syncCarlaVeinsData(msg);
         }
 
-        nextSno_++;
 
         emit(sentMsg_, (long)1);
 
@@ -303,6 +306,11 @@ void Mode4App::syncCarlaVeinsData(cMessage* msg)
       }
     }
 
+
+    if (UmTxEntityPtr == nullptr && veins::FindModule<UmTxEntity*>::findSubModule(getParentModule())) {
+      UmTxEntityPtr = veins::FindModule<UmTxEntity*>::findSubModule(getParentModule());
+    }
+
     for (auto payload = targetCPMs.begin(); payload != targetCPMs.end(); payload++) {
       try {
           json payload_json = json::parse(*payload);
@@ -317,6 +325,8 @@ void Mode4App::syncCarlaVeinsData(cMessage* msg)
 //          packet->setByteLength(size_);
           packet->setSno(nextSno_);
 
+          nextSno_++;
+
           auto lteControlInfo = new FlowControlInfoNonIp();
 
           lteControlInfo->setSrcAddr(nodeId_);
@@ -329,9 +339,12 @@ void Mode4App::syncCarlaVeinsData(cMessage* msg)
 
 //          std::cout << "payload: " << *payload << std::endl;
           Mode4BaseApp::sendLowerPackets(packet);
+
+
+          break;
           // ----- End Population -----
       } catch (...) {
-          std::cout << "targetCPMd error: "<< (*payload).c_str() << "." << std::endl;
+          std::cout << "targetCPMs error: "<< (*payload).c_str() << "." << std::endl;
           continue;
       }
     }

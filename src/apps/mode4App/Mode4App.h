@@ -27,6 +27,8 @@
 #include "veins/modules/mobility/traci/TraCIMobility.h"
 #include "veins_inet/VeinsInetMobility.h"
 #include "apps/cpm/VeinsCarlaCpm_m.h"
+#include "stack/rlc/um/entity/UmTxEntity.h"
+
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -103,6 +105,7 @@ protected:
    virtual void syncCarlaVeinsData(cMessage* msg);
 
    veins::VeinsInetMobility* mobility;
+   UmTxEntity* UmTxEntityPtr;
 
    std::string carlaVeinsDataDir;
    bool is_dynamic_simulation;
