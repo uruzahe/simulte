@@ -233,7 +233,11 @@ void Mode4App::handleSelfMessage(cMessage* msg)
             packet->setSno(nextSno_);
 
             nextSno_++;
+<<<<<<< HEAD
 
+=======
+            
+>>>>>>> f692a16410dc3012e492565e5a8969a043a70813
             auto lteControlInfo = new FlowControlInfoNonIp();
 
             lteControlInfo->setSrcAddr(nodeId_);
@@ -324,6 +328,7 @@ void Mode4App::syncCarlaVeinsData(cMessage* msg)
           packet->setTimestamp(simTime());
 //          packet->setByteLength(size_);
           packet->setSno(nextSno_);
+          nextSno_++;
 
           nextSno_++;
 
@@ -340,7 +345,10 @@ void Mode4App::syncCarlaVeinsData(cMessage* msg)
 //          std::cout << "payload: " << *payload << std::endl;
           Mode4BaseApp::sendLowerPackets(packet);
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> f692a16410dc3012e492565e5a8969a043a70813
           break;
           // ----- End Population -----
       } catch (...) {
