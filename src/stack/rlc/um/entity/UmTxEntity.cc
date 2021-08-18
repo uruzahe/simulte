@@ -14,6 +14,12 @@ Define_Module(UmTxEntity);
 /*
  * Main functions
  */
+// ----- Begin My Code -----
+bool UmTxEntity::isSduQueueEmpty()
+{
+  return sduQueue_.empty();
+}
+// ----- End My Code -----
 
 void UmTxEntity::initialize()
 {

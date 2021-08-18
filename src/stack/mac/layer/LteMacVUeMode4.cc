@@ -3,15 +3,15 @@
 // it under the terms of the GNU Lesser General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
-// 
+//
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU Lesser General Public License for more details.
-// 
+//
 // You should have received a copy of the GNU Lesser General Public License
 // along with this program.  If not, see http://www.gnu.org/licenses/.
-// 
+//
 
 /**
  * LteMacVUeMode4 is a new model which implements the functionality of LTE Mode 4 as per 3GPP release 14
@@ -1136,6 +1136,7 @@ void LteMacVUeMode4::flushHarqBuffers()
                         const unsigned int* tbsVect = itbs2tbs(mod, SINGLE_ANTENNA_PORT0, 1, mcs - i);
                         mcsCapacity = tbsVect[totalGrantedBlocks-1];
 
+                        std::cout << "pduLength: " << pduLength << ", mcsCapacity: " << mcsCapacity << ", mcs" << mcs << std::endl;
                         if (mcsCapacity > pduLength)
                         {
                             foundValidMCS = true;
@@ -1256,5 +1257,3 @@ void LteMacVUeMode4::finish()
     delete preconfiguredTxParams_;
     delete ueInfo_;
 }
-
-

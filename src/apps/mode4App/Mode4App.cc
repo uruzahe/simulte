@@ -163,6 +163,7 @@ void Mode4App::initialize(int stage)
 
         sendCPMEvt = new cMessage("cpm");
         sumo_id = mobility->external_id;
+        appQueue = {};
         obtainedCPMs = {};
         if (is_dynamic_simulation) {
           reservedCPMs = {} ;
@@ -233,11 +234,7 @@ void Mode4App::handleSelfMessage(cMessage* msg)
             packet->setSno(nextSno_);
 
             nextSno_++;
-<<<<<<< HEAD
 
-=======
-            
->>>>>>> f692a16410dc3012e492565e5a8969a043a70813
             auto lteControlInfo = new FlowControlInfoNonIp();
 
             lteControlInfo->setSrcAddr(nodeId_);
@@ -268,6 +265,7 @@ void Mode4App::syncCarlaVeinsData(cMessage* msg)
     std::vector<std::string> targetCPMs;
     double next_time_step = carlaTimeStep;
 
+    // ----- make targetCPMs -----
     if (is_dynamic_simulation) {
       // save received cpms
       set_cpm_payloads_for_carla(sumo_id, carlaVeinsDataDir, obtainedCPMs);
@@ -304,58 +302,109 @@ void Mode4App::syncCarlaVeinsData(cMessage* msg)
               break;
             }
         } catch (...) {
-            std::cout << "reservedCPMd error: "<< (*payload).c_str() << "." << std::endl;
+            std::cout << "reservedCPMs error: "<< (*payload).c_str() << "." << std::endl;
+            continue;
+        }
+      }
+    }
+
+    // ----- extend targetCPMs to AppQueue -----
+    for (auto payload = targetCPMs.begin(); payload != targetCPMs.end(); payload++) {
+      appQueue.push_back(*payload);
+    }
+
+    if (UmTxEntityPtr == nullptr && veins::FindModule<UmTxEntity*>::findSubModule(getParentModule())) {
+      UmTxEntityPtr = veins::FindModule<UmTxEntity*>::findSubModule(getParentModule());
+    }
+
+    if (UmTxEntityPtr != nullptr) {
+      std::cout << "Empty: " << UmTxEntityPtr->isSduQueueEmpty() << std::endl;
+    }
+
+    // ----- send packet from targetCPMs -----
+    if (UmTxEntityPtr == nullptr || UmTxEntityPtr->isSduQueueEmpty()) {
+      auto payload = appQueue.begin();
+
+      while (payload != appQueue.end()) {
+        try {
+            json payload_json = json::parse(*payload);
+
+            veins::VeinsCarlaCpm* packet = new veins::VeinsCarlaCpm();
+
+            packet->setPayload((*payload).c_str());
+            packet->setBitLength(payload_json["option"]["size"].get<int>() * 8);
+
+            // ----- Begin Population -----
+            packet->setTimestamp(simTime());
+  //          packet->setByteLength(size_);
+            packet->setSno(nextSno_);
+            nextSno_++;
+
+            nextSno_++;
+
+            auto lteControlInfo = new FlowControlInfoNonIp();
+
+            lteControlInfo->setSrcAddr(nodeId_);
+            lteControlInfo->setDirection(D2D_MULTI);
+            lteControlInfo->setPriority(priority_);
+            lteControlInfo->setDuration(duration_);
+            lteControlInfo->setCreationTime(simTime());
+
+            packet->setControlInfo(lteControlInfo);
+
+  //          std::cout << "payload: " << *payload << std::endl;
+            Mode4BaseApp::sendLowerPackets(packet);
+
+            appQueue.erase(payload);
+            break;
+            // ----- End Population -----
+        } catch (...) {
+            std::cout << "appQueue error: "<< (*payload).c_str() << "." << std::endl;
+            appQueue.erase(payload);
             continue;
         }
       }
     }
 
 
-    if (UmTxEntityPtr == nullptr && veins::FindModule<UmTxEntity*>::findSubModule(getParentModule())) {
-      UmTxEntityPtr = veins::FindModule<UmTxEntity*>::findSubModule(getParentModule());
-    }
-
-    for (auto payload = targetCPMs.begin(); payload != targetCPMs.end(); payload++) {
-      try {
-          json payload_json = json::parse(*payload);
-
-          veins::VeinsCarlaCpm* packet = new veins::VeinsCarlaCpm();
-
-          packet->setPayload((*payload).c_str());
-          packet->setBitLength(payload_json["option"]["size"].get<int>() * 8);
-
-          // ----- Begin Population -----
-          packet->setTimestamp(simTime());
-//          packet->setByteLength(size_);
-          packet->setSno(nextSno_);
-          nextSno_++;
-
-          nextSno_++;
-
-          auto lteControlInfo = new FlowControlInfoNonIp();
-
-          lteControlInfo->setSrcAddr(nodeId_);
-          lteControlInfo->setDirection(D2D_MULTI);
-          lteControlInfo->setPriority(priority_);
-          lteControlInfo->setDuration(duration_);
-          lteControlInfo->setCreationTime(simTime());
-
-          packet->setControlInfo(lteControlInfo);
-
-//          std::cout << "payload: " << *payload << std::endl;
-          Mode4BaseApp::sendLowerPackets(packet);
-
-<<<<<<< HEAD
-
-=======
->>>>>>> f692a16410dc3012e492565e5a8969a043a70813
-          break;
-          // ----- End Population -----
-      } catch (...) {
-          std::cout << "targetCPMs error: "<< (*payload).c_str() << "." << std::endl;
-          continue;
-      }
-    }
+//
+//     for (auto payload = targetCPMs.begin(); payload != targetCPMs.end(); payload++) {
+//       try {
+//           json payload_json = json::parse(*payload);
+//
+//           veins::VeinsCarlaCpm* packet = new veins::VeinsCarlaCpm();
+//
+//           packet->setPayload((*payload).c_str());
+//           packet->setBitLength(payload_json["option"]["size"].get<int>() * 8);
+//
+//           // ----- Begin Population -----
+//           packet->setTimestamp(simTime());
+// //          packet->setByteLength(size_);
+//           packet->setSno(nextSno_);
+//           nextSno_++;
+//
+//           nextSno_++;
+//
+//           auto lteControlInfo = new FlowControlInfoNonIp();
+//
+//           lteControlInfo->setSrcAddr(nodeId_);
+//           lteControlInfo->setDirection(D2D_MULTI);
+//           lteControlInfo->setPriority(priority_);
+//           lteControlInfo->setDuration(duration_);
+//           lteControlInfo->setCreationTime(simTime());
+//
+//           packet->setControlInfo(lteControlInfo);
+//
+// //          std::cout << "payload: " << *payload << std::endl;
+//           Mode4BaseApp::sendLowerPackets(packet);
+//
+//           break;
+//           // ----- End Population -----
+//       } catch (...) {
+//           std::cout << "targetCPMs error: "<< (*payload).c_str() << "." << std::endl;
+//           continue;
+//       }
+//     }
 }
 // ----- End My Code -----
 

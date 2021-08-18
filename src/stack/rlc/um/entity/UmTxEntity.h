@@ -75,6 +75,10 @@ class UmTxEntity : public cSimpleModule
     // called when a D2D mode switch is triggered
     void rlcHandleD2DModeSwitch(bool oldConnection);
 
+    // ----- Begin My Code -----
+    bool isSduQueueEmpty();
+    // ----- End My Code -----
+
   protected:
 
     /*

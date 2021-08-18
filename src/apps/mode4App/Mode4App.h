@@ -116,6 +116,12 @@ protected:
    std::string sumo_id;
    std::vector<std::string> obtainedCPMs;
    std::vector<std::string> reservedCPMs;
+
+   // AppQueue is used to control SDU queue.
+   // In default codes of OpenCV2X, sdu fragments are removed if new packets are generated in the application layer (See enque method of UmTxEntity.cc).
+   // Therefore, we have to generate packets when SDU queue is empty.
+   std::vector<std::string> appQueue;
+
    std::string veinsLockFile;
    std::string veinsTxtFile;
 
