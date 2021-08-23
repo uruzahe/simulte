@@ -36,6 +36,10 @@
 #include "stack/mac/amc/LteMcs.h"
 #include <map>
 
+// ----- Begin My Code -----
+#include "stack/mac/packet/LteMacSduRequest.h"
+// ----- End My Code -----
+
 Define_Module(LteMacVUeMode4);
 
 LteMacVUeMode4::LteMacVUeMode4() :
@@ -868,6 +872,61 @@ void LteMacVUeMode4::handleSelfMessage()
     EV << "--- END UE MAIN LOOP ---" << endl;
 }
 
+// ----- Begin My Code -----
+bool LteMacVUeMode4::macSduRequest()
+{
+    // ----- calculate mcsCapasity -----
+    LteMode4SchedulingGrant* mode4Grant = dynamic_cast<LteMode4SchedulingGrant*>(schedulingGrant_);
+    LteMod mod = _QPSK;
+    if (maxMCSPSSCH_ > 9 && maxMCSPSSCH_ < 17)
+    {
+        mod = _16QAM;
+    }
+    else if (maxMCSPSSCH_ > 16 && maxMCSPSSCH_ < 29 )
+    {
+        mod = _64QAM;
+    }
+
+    unsigned int i = (mod == _QPSK ? 0 : (mod == _16QAM ? 9 : (mod == _64QAM ? 15 : 0)));
+
+    const unsigned int* tbsVect = itbs2tbs(mod, SINGLE_ANTENNA_PORT0, 1, maxMCSPSSCH_ - i);
+    int mcsCapacity = tbsVect[mode4Grant->getTotalGrantedBlocks() - 1] / 8 - 1; //bit to byte.
+
+
+    EV << "----- START LteMacVUeMode4::macSduRequest -----\n";
+    bool sent = false;
+    // Ask for a MAC sdu for each scheduled user on each codeword
+    LteMacScheduleList::const_iterator it;
+    for (it = scheduleList_->begin(); it != scheduleList_->end(); it++)
+    {
+        MacCid destCid = it->first.first;
+        Codeword cw = it->first.second;
+        MacNodeId destId = MacCidToNodeId(destCid);
+
+        // get the number of granted bytes
+        unsigned int allocatedBytes = schedulingGrant_->getGrantedCwBytes(cw);
+        if (mcsCapacity <= allocatedBytes) {
+          // ----- Since we cannot send pdu which have higher length than mcsCapacity at flushHarqBuffers,
+          // ----- we have to allocate mcsCapasity at most.
+          allocatedBytes = mcsCapacity;
+        }
+
+        // send the request message to the upper layer
+        LteMacSduRequest* macSduRequest = new LteMacSduRequest("LteMacSduRequest");
+        macSduRequest->setUeId(destId);
+        macSduRequest->setLcid(MacCidToLcid(destCid));
+        macSduRequest->setSduSize(allocatedBytes - MAC_HEADER);    // do not consider MAC header size
+        macSduRequest->setControlInfo((&connDesc_[destCid])->dup());
+        sendUpperPackets(macSduRequest);
+
+        sent = true;
+    }
+
+    EV << "------ END LteMacVUeMode4::macSduRequest ------\n";
+    return sent;
+}
+// ----- End My Code -----
+
 void LteMacVUeMode4::macHandleSps(cPacket* pkt)
 {
     /**   This is where we add the subchannels to the actual scheduling grant, so a few things
@@ -1139,6 +1198,7 @@ void LteMacVUeMode4::flushHarqBuffers()
                         std::cout << "pduLength: " << pduLength << ", mcsCapacity: " << mcsCapacity << ", mcs" << mcs << std::endl;
                         if (mcsCapacity > pduLength)
                         {
+                            std::cout << "foundValidMCS: True" << std::endl;
                             foundValidMCS = true;
                             mode4Grant->setMcs(mcs);
                             mode4Grant->setGrantedCwBytes(cw, mcsCapacity);
