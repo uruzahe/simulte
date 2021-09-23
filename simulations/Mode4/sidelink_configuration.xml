@@ -3,20 +3,20 @@
 		<userEquipment-txParameters>
 			<parameter name="minMCS-PSSCH" type="double" value="5"/>
 			<parameter name="maxMCS-PSSCH" type="double" value="7"/>
-			<parameter name="minSubchannel-NumberPSSCH" type="double" value="1"/>
-			<parameter name="maxSubchannel-NumberPSSCH" type="double" value="1"/>
-			<parameter name="allowedRetxNumberPSSCH" type="double" value="0"/> 
+			<parameter name="minSubchannel-NumberPSSCH" type="double" value="2"/>
+			<parameter name="maxSubchannel-NumberPSSCH" type="double" value="2"/>
+			<parameter name="allowedRetxNumberPSSCH" type="double" value="0"/>
 		</userEquipment-txParameters>
-		
+
 		<RestrictResourceReservationPeriodList>
 			<RestrictResourceReservationPeriod>
 				<parameter name="rri" type="double" value="1"/>
 			</RestrictResourceReservationPeriod>
-		</RestrictResourceReservationPeriodList>	
-				
+		</RestrictResourceReservationPeriodList>
+
 		<Sl-CBR-CommonTxConfigList>
 			<parameter name="default-cbr-ConfigIndex" type="double" value="0"/>
-			
+
 			<cbr-Levels-Config>
 				<cbr-ConfigIndex>
 					<parameter name="cbr-lower" type="double" value="0"/>
@@ -69,7 +69,7 @@
 					<parameter name="cbr-PSSCH-TxConfig-Index" type="double" value="9"/>
 				</cbr-ConfigIndex>
 			</cbr-Levels-Config>
-			
+
 			<cbr-PSSCH-TxConfig>
 				<txParameters>
 					<parameter name="cr-Limit" type="double" value="1"/>

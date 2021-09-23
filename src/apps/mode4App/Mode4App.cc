@@ -25,84 +25,9 @@
 
 // ----- Begin My Code -----
 #include <nlohmann/json.hpp>
+#include "apps/mode4App/CarlaVeinsUtil.h"
 
 using json = nlohmann::json;
-
-int existFile(const char* path)
-{
-    FILE* fp = fopen(path, "r");
-    if (fp == NULL) {
-        return 0;
-    }
-
-    fclose(fp);
-    return 1;
-}
-
-
-int carla_lock_wait(std::string data_sync_dir) {
-  std::string carla_lock_file_path = data_sync_dir + "carla.lock";
-
-  if (existFile(carla_lock_file_path.c_str())) {
-    return carla_lock_wait(data_sync_dir);
-  } else {
-    return 1;
-  }
-}
-
-
-void lock(const char *oldpath, const char *newpath) {
-  while (symlink(oldpath, newpath) == -1) {
-    continue;
-  }
-}
-
-
-void set_cpm_payloads_for_carla(std::string sumo_id, std::string data_sync_dir, std::vector<std::string> payloads) {
-    std::string packet_data_file_name = sumo_id + "_packet.json";
-    std::string packet_lock_file_name = sumo_id + "_packet.json.lock";
-
-//    lock((data_sync_dir + packet_data_file_name).c_str(), (data_sync_dir + packet_lock_file_name).c_str());
-    std::ofstream ofs(data_sync_dir + packet_data_file_name, std::ios::in | std::ios::ate);
-    if (ofs.is_open()) {
-        for (auto payload = payloads.begin(); payload != payloads.end(); payload++) {
-            ofs << *payload << std::endl;
-        }
-    }
-    ofs.close();
-//    unlink((data_sync_dir + packet_lock_file_name).c_str());
-}
-
-
-std::vector<std::string> get_cpm_payloads_from_carla(std::string sumo_id, std::string data_sync_dir, bool read_only) {
-    std::string sensor_data_file_name = sumo_id + "_sensor.json";
-    std::string sensor_lock_file_name = sumo_id + "_sensor.json.lock";
-
-    std::vector<std::string> payloads = {};
-    std::string payload;
-
-//    lock((data_sync_dir + sensor_data_file_name).c_str(), (data_sync_dir + sensor_lock_file_name).c_str());
-    std::ifstream ifs(data_sync_dir + sensor_data_file_name);
-    if (ifs.is_open()) {
-        while (!ifs.eof()) {
-          std::getline(ifs, payload);
-          if (payload != "") {
-            payloads.push_back(payload);
-          } else {
-            continue;
-          }
-        }
-    }
-    ifs.close();
-
-    if (!read_only) {
-      std::ofstream ofs(data_sync_dir + sensor_data_file_name);
-      ofs.close();
-    }
-
-//    unlink((data_sync_dir + sensor_lock_file_name).c_str());
-    return payloads;
-}
 // ----- End My Code -----
 
 Define_Module(Mode4App);
