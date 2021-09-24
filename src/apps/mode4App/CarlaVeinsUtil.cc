@@ -7,6 +7,10 @@ JsonData::JsonData() {
   _data = {};
 }
 
+bool JsonData::is_empty(){
+  return _data.empty();
+}
+
 void JsonData::load_json_str(std::string json_str){
   try {
     _data.push_back(json::parse(json_str));
@@ -17,7 +21,7 @@ void JsonData::load_json_str(std::string json_str){
 }
 
 void JsonData::load_json_strs(std::vector<std::string> json_strs){
-  for (auto data_pointer = json_strs.begin(); i != json_strs.end(); i++) {
+  for (auto data_pointer = json_strs.begin(); data_pointer != json_strs.end(); data_pointer++) {
     load_json_str(*data_pointer);
   }
 }
@@ -31,7 +35,11 @@ std::vector<json> JsonData::pop_all(){
 }
 
 json JsonData::pop_back(){
-  return _data.pop_back();
+  json result = _data.back();
+
+  _data.pop_back();
+
+  return result;
 }
 
 
@@ -41,17 +49,28 @@ void JsonData::push_back(json data){
 // ----- End: JsonData-----
 
 // ----- Begin: function -----
+
+std::string cams_json_file_path(std::string data_sync_dir, std::string sumo_id)
+{
+  return data_sync_dir + sumo_id + "_cams.json";
+}
+
+std::string cpms_json_file_path(std::string data_sync_dir, std::string sumo_id)
+{
+  return data_sync_dir + sumo_id + "_cpms.json";
+}
+
 std::string objects_json_file_path(std::string data_sync_dir, std::string sumo_id)
 {
   return data_sync_dir + sumo_id + "_objects.json";
 }
 
-std::string packet_json_file_path(std::string data_sync_dir, std::string sumo_id);
+std::string packet_json_file_path(std::string data_sync_dir, std::string sumo_id)
 {
   return data_sync_dir + sumo_id + "_packet.json";
 }
 
-std::string sensor_json_file_path(std::string data_sync_dir, std::string sumo_id);
+std::string sensor_json_file_path(std::string data_sync_dir, std::string sumo_id)
 {
   return data_sync_dir + sumo_id + "_sensor.json";
 }
@@ -69,7 +88,7 @@ int existFile(const char* path)
 }
 
 
-std::vector<std::string> file2str_vec(std::string file_path){
+std::vector<std::string> file2str_vec(std::string file_path, bool read_only){
 
   std::vector<std::string> payloads = {};
   std::string payload;
@@ -116,8 +135,8 @@ void lock(const char *oldpath, const char *newpath) {
 
 
 void set_cpm_payloads_for_carla(std::string sumo_id, std::string data_sync_dir, std::vector<std::string> payloads) {
-    std::string packet_data_file_name = sumo_id + "_packet.json";
-    std::string packet_lock_file_name = sumo_id + "_packet.json.lock";
+    std::string packet_data_file_name = sumo_id + "_cpms.json";
+    std::string packet_lock_file_name = sumo_id + "_cpms.json.lock";
 
 //    lock((data_sync_dir + packet_data_file_name).c_str(), (data_sync_dir + packet_lock_file_name).c_str());
     std::ofstream ofs(data_sync_dir + packet_data_file_name, std::ios::in | std::ios::ate);
@@ -132,14 +151,14 @@ void set_cpm_payloads_for_carla(std::string sumo_id, std::string data_sync_dir, 
 
 
 std::vector<std::string> get_cpm_payloads_from_carla(std::string sumo_id, std::string data_sync_dir, bool read_only) {
-    std::string sensor_data_file_name = sumo_id + "_sensor.json";
-    std::string sensor_lock_file_name = sumo_id + "_sensor.json.lock";
+    std::string sensor_data_file_name = sumo_id + "_cpms.json";
+    std::string sensor_lock_file_name = sumo_id + "_cpms.json.lock";
 
     std::vector<std::string> payloads = {};
     std::string payload;
 
     //    lock((data_sync_dir + sensor_data_file_name).c_str(), (data_sync_dir + sensor_lock_file_name).c_str());
-    return file2str_vec(data_sync_dir + sensor_data_file_name);
+    return file2str_vec(data_sync_dir + sensor_data_file_name, read_only);
     //    unlink((data_sync_dir + sensor_lock_file_name).c_str());
 }
 // ----- End: function -----

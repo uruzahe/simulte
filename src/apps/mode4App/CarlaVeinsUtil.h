@@ -17,6 +17,7 @@ public:
 
   std::vector<json> _data;
 
+  bool is_empty();
   void load_json_str(std::string json_str);
   void load_json_strs(std::vector<std::string> json_strs);
   std::vector<json> pop_all();
@@ -29,22 +30,34 @@ class CAMs : public JsonData
 
 };
 
-class PerceivesObjectes : public JsonData
+class PerceivedObjectes : public JsonData
 {
 
 };
 
-
-class CAMsHandler
+class CAMReceiver : public JsonData
 {
 
 };
 
-class CPMsHandler
+class PerceivedObjectesReceiver : public JsonData
 {
 
 };
 
+class CAMSender
+{
+
+};
+
+class CPMSender
+{
+
+};
+
+std::string cams_json_file_path(std::string data_sync_dir, std::string sumo_id);
+
+std::string cpms_json_file_path(std::string data_sync_dir, std::string sumo_id);
 
 std::string objects_json_file_path(std::string data_sync_dir, std::string sumo_id);
 
@@ -54,7 +67,7 @@ std::string sensor_json_file_path(std::string data_sync_dir, std::string sumo_id
 
 int existFile(const char* path);
 
-std::vector<std::string> file2string_vector(const char* path);
+std::vector<std::string> file2string_vector(std::string file_path, bool read_only);
 
 int carla_lock_wait(std::string data_sync_dir);
 

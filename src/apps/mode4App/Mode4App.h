@@ -26,8 +26,11 @@
 #include "veins_inet/veins_inet.h"
 #include "veins/modules/mobility/traci/TraCIMobility.h"
 #include "veins_inet/VeinsInetMobility.h"
-#include "apps/cpm/VeinsCarlaCpm_m.h"
 #include "stack/rlc/um/entity/UmTxEntity.h"
+
+#include "apps/cpm/VeinsCarlaCpm_m.h"
+#include "apps/cpm/VeinsCarlaPacket_m.h"
+#include "apps/mode4App/CarlaVeinsUtil.h"
 
 
 #include <stdio.h>
@@ -102,6 +105,7 @@ protected:
    void sendLowerPackets(cPacket* pkt);
 
    // My Code, Begin
+   virtuel void loadCarlaVeinsData(bool read_only);
    virtual void syncCarlaVeinsData(cMessage* msg);
 
    veins::VeinsInetMobility* mobility;
@@ -127,6 +131,13 @@ protected:
 
    uint32_t generatedCPMs;
    uint32_t receivedCPMs;
+
+   CAMs*  _cams_ptr;
+   PerceivedObjectes* _perceived_objects_ptr;
+
+   CAMSender* _cams_sender_ptr;
+   CPMSender* _cpm_sender_ptr;
+
    // My Code, End
 
 };
