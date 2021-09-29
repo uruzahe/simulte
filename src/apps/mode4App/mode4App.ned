@@ -25,23 +25,25 @@ simple Mode4App like Mode4BaseApp
         int duration = default(1000); // MS before packet must be dropped
         double period @unit("s") = default(0.1s);
         int macNodeId = default(0);
-        
+
         // ----- Begin My Params -----
         bool sendBeacons = default(true);
         bool sendCPM = default(false);
         double carlaTimeStep = default(0.1s) @unit(s);
         string carlaVeinsDataDir = default("/vagrant/carla-veins-data/");
         bool is_dynamic_simulation = default(false);
+        int sensor_num = default(1);
+        int max_cpm_size = default(200);
         // ----- End My Params -----
-        
+
         @signal[sentMsg];
         @statistic[sentMsg](title="Messages sent"; unit=""; source="sentMsg"; record=sum,vector);
         @signal[delay];
-        @statistic[delay](title="Message Delay"; unit="s"; source="delay"; record=mean,vector);    
-        @signal[rcvdMsg]; 
+        @statistic[delay](title="Message Delay"; unit="s"; source="delay"; record=mean,vector);
+        @signal[rcvdMsg];
         @statistic[rcvdMsg](title="Messages Received"; unit="s"; source="rcvdMsg"; record=sum,vector);
         @signal[cbr];
-        @statistic[cbr](title="Channel Busy Ratio"; unit=""; source="cbr"; record=vector);         
+        @statistic[cbr](title="Channel Busy Ratio"; unit=""; source="cbr"; record=vector);
         @display("i=block/source");
     gates:
         input lowerGateIn; // FROM NIC

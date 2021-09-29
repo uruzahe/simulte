@@ -34,5 +34,6 @@ class LAddress::L2Type extends void;
 
 packet VeinsCarlaPacket extends BaseFrame1609_4 {
     unsigned int sno;
+    string type;
     string payload;
 }

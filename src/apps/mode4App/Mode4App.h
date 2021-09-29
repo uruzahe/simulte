@@ -104,8 +104,10 @@ protected:
     */
    void sendLowerPackets(cPacket* pkt);
 
-   // My Code, Begin
-   virtuel void loadCarlaVeinsData(bool read_only);
+   //-----  My Code, Begin -----
+   bool isSduQueueEmpty();
+   void SendPacket(std::string payload, std::string type, int payload_byte_size);
+   virtual void loadCarlaVeinsData(bool read_only);
    virtual void syncCarlaVeinsData(cMessage* msg);
 
    veins::VeinsInetMobility* mobility;
@@ -132,13 +134,19 @@ protected:
    uint32_t generatedCPMs;
    uint32_t receivedCPMs;
 
+   int sensor_num;
+   int max_cpm_size;
+
    CAMs*  _cams_ptr;
-   PerceivedObjectes* _perceived_objects_ptr;
+   PerceivedObjectes* _pos_ptr;
 
-   CAMSender* _cams_sender_ptr;
-   CPMSender* _cpm_sender_ptr;
+   CAMSendHandler* _cams_send_ptr;
+   POSendHandler* _pos_send_ptr;
 
-   // My Code, End
+   CAMRecvHandler* _cams_recv_ptr;
+   PORecvHandler* _pos_recv_ptr;
+
+   // ----- My Code, End -----
 
 };
 
