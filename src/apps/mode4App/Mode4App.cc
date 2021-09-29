@@ -79,6 +79,7 @@ void Mode4App::initialize(int stage)
 
         // ----- My Code, Begin. -----
         EV_TRACE << "My Code" << std::endl;
+
         max_cpm_size = par("max_cpm_size").intValue();
         carlaVeinsDataDir = par("carlaVeinsDataDir").stringValue();
         sensor_num = par("sensor_num").intValue();
@@ -88,6 +89,7 @@ void Mode4App::initialize(int stage)
         carlaTimeStep = par("carlaTimeStep").doubleValue();
 
         sumo_id = mobility->external_id;
+        std::cout << "sumo_id: " << sumo_id << " is loaded. " << std::endl;
         appQueue = {};
 
         _cams_ptr = new CAMs;
@@ -98,11 +100,15 @@ void Mode4App::initialize(int stage)
         _pos_send_ptr = new POSendHandler;
         _pos_recv_ptr = new PORecvHandler;
 
-        if (!is_dynamic_simulation) {
+
+        if (!sendBeacons && !is_dynamic_simulation) {
           loadCarlaVeinsData(true);
         }
-        touch(cams_recv_json_file_path(carlaVeinsDataDir, sumo_id));
-        touch(objects_recv_json_file_path(carlaVeinsDataDir, sumo_id));
+
+        if (!sendBeacons) {
+            touch(cams_recv_json_file_path(carlaVeinsDataDir, sumo_id));
+            touch(objects_recv_json_file_path(carlaVeinsDataDir, sumo_id));
+        }
 
         generatedCPMs = 0;
         receivedCPMs = 0;
@@ -130,8 +136,8 @@ void Mode4App::handleLowerMessage(cMessage* msg)
             simtime_t delay = simTime() - vc_pkt->getTimestamp();
             emit(delay_, delay);
             emit(rcvdMsg_, (long)1);
-            std::cout << sumo_id << " received cpm messages" << std::endl;
-            std::cout << "payloads: " << vc_pkt->getPayload() << std::endl;
+//            std::cout << sumo_id << " received cpm messages" << std::endl;
+//            std::cout << "payloads: " << vc_pkt->getPayload() << std::endl;
             EV << "Mode4App::handleMessage - CPM Packet received: SeqNo[" << vc_pkt->getSno() << "] Delay[" << delay << "]" << endl;
 
             if ((std::string) vc_pkt->getType() == "cam") {

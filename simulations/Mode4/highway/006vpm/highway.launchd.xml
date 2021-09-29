@@ -1,5 +1,6 @@
 <launch>
-  <basedir path="/home/vagrant/Downloads/simulte/simulations/Mode4/highway/006vpm"/>
+  <!-- <basedir path="/home/vagrant/Downloads/simulte/simulations/Mode4/highway/006vpm"/> -->
+  <basedir path="/home/yoshida/simulte/simulations/Mode4//highway/006vpm"/>
   <copy file="highway.net.xml"/>
   <copy file="highway.rou.xml"/>
   <copy file="rerouters.add.xml"/>
