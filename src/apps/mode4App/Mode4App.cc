@@ -140,12 +140,18 @@ void Mode4App::handleLowerMessage(cMessage* msg)
 //            std::cout << "payloads: " << vc_pkt->getPayload() << std::endl;
             EV << "Mode4App::handleMessage - CPM Packet received: SeqNo[" << vc_pkt->getSno() << "] Delay[" << delay << "]" << endl;
 
+            json recv_data;
+            recv_data["payload"] = (std::string) vc_pkt->getPayload();
+            recv_data["send_time"] = vc_pkt->getTimestamp().dbl();
+            recv_data["recv_time"] = simTime().dbl();
+
             if ((std::string) vc_pkt->getType() == "cam") {
-              string_vector2file(cams_recv_json_file_path(carlaVeinsDataDir, sumo_id), { (std::string) vc_pkt->getPayload() });
+              string_vector2file(cams_recv_json_file_path(carlaVeinsDataDir, sumo_id), { recv_data.dump() });
 
             } else if ((std::string) vc_pkt->getType() == "cpm") {
-              json payload = json::parse(vc_pkt->getPayload());
-              string_vector2file(objects_recv_json_file_path(carlaVeinsDataDir, sumo_id), payload.get<std::vector<std::string>>());
+              // json payload = json::parse(vc_pkt->getPayload());
+              // string_vector2file(objects_recv_json_file_path(carlaVeinsDataDir, sumo_id), payload.get<std::vector<std::string>>());
+              string_vector2file(objects_recv_json_file_path(carlaVeinsDataDir, sumo_id), { recv_data.dump() });
             }
 
         } // ----- End My Code -----

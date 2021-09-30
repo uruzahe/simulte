@@ -890,7 +890,7 @@ bool LteMacVUeMode4::macSduRequest()
     unsigned int i = (mod == _QPSK ? 0 : (mod == _16QAM ? 9 : (mod == _64QAM ? 15 : 0)));
 
     const unsigned int* tbsVect = itbs2tbs(mod, SINGLE_ANTENNA_PORT0, 1, maxMCSPSSCH_ - i);
-    int mcsCapacity = tbsVect[mode4Grant->getTotalGrantedBlocks() - 1] / 8 - 1; //bit to byte.
+    int mcsCapacity = tbsVect[mode4Grant->getTotalGrantedBlocks() - 1] / 8 - 1; // bit to byte.
 
 
     EV << "----- START LteMacVUeMode4::macSduRequest -----\n";

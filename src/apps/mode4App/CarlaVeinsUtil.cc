@@ -277,11 +277,11 @@ std::vector<std::string> file2string_vector(std::string file_path, bool read_onl
 
 void touch(std::string file_path)
 {
-  if (!existFile(file_path.c_str())) {
+//  if (!existFile(file_path.c_str())) {
       FILE *fp;
       fp = fopen(file_path.c_str(), "w");
       fclose(fp);
-  }
+//  }
 }
 
 void string_vector2file(std::string file_path, std::vector<std::string> str_vec) {
@@ -313,6 +313,13 @@ void lock(const char *oldpath, const char *newpath) {
   while (symlink(oldpath, newpath) == -1) {
     continue;
   }
+}
+
+json add_time_attribute_to_json(json data, std::string attr_name, double t)
+{
+  data[attr_name] = t;
+
+  return data;
 }
 
 

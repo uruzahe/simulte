@@ -50,7 +50,6 @@ public:
 
 class CAMRecvHandler : public CAMHandler
 {
-
 };
 
 class CAMSendHandler : public CAMHandler
@@ -73,12 +72,15 @@ public:
 
 class PORecvHandler : public POHandler
 {
+public:
 
 };
 
 class POSendHandler : public POHandler
 {
 };
+
+json add_time_attribute_to_json(json data, std::string attr_name, double t);
 
 std::string cams_json_file_path(std::string data_sync_dir, std::string sumo_id);
 
