@@ -130,7 +130,7 @@ void Mode4App::handleLowerMessage(cMessage* msg)
         // ----- Begin My Code -----
         if (veins::VeinsCarlaPacket* vc_pkt = dynamic_cast<veins::VeinsCarlaPacket*>(msg)) {
             receivedCPMs++;
-            obtainedCPMs.push_back((std::string) vc_pkt->getPayload());
+            // obtainedCPMs.push_back((std::string) vc_pkt->getPayload());
 
             // emit statistics
             simtime_t delay = simTime() - vc_pkt->getTimestamp();
@@ -145,7 +145,13 @@ void Mode4App::handleLowerMessage(cMessage* msg)
             recv_data["send_time"] = vc_pkt->getTimestamp().dbl();
             recv_data["recv_time"] = simTime().dbl();
 
+
+
             if ((std::string) vc_pkt->getType() == "cam") {
+              json payload = json::parse(vc_pkt->getPayload());
+              if (sumo_id == "348" && payload["HF_Container"]["sumo_id"].get<std::string>() == "397") {
+                std::cout << recv_data["payload"] << std::endl;
+              }
               string_vector2file(cams_recv_json_file_path(carlaVeinsDataDir, sumo_id), { recv_data.dump() });
 
             } else if ((std::string) vc_pkt->getType() == "cpm") {
@@ -295,6 +301,10 @@ void Mode4App::syncCarlaVeinsData(cMessage* msg)
   if (!target_cams.empty()) {
     json packet = _cams_send_ptr->convert_payload_and_size(target_cams[0], size_);
 
+    // if (sumo_id == "348" || sumo_id == "397") {
+    //   std::cout << sumo_id << ": " << mobility->getCurrentPosition() << ", " << packet["payload"].get<std::string>() << std::endl;
+    // }
+    std::cout << sumo_id << ": " << mobility->getCurrentPosition() << ", " << packet["payload"].get<std::string>() << std::endl;
     SendPacket(packet["payload"].get<std::string>(), "cam", packet["size"].get<int>());
 
     return;
