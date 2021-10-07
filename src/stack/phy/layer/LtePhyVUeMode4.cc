@@ -1464,9 +1464,23 @@ void LtePhyVUeMode4::decodeAirFrame(LteAirFrame* frame, UserControlInfo* lteInfo
         delete frame;
 
         // send decapsulated message along with result control info to upperGateOut_
-        lteInfo->setDeciderResult(interference_result);
-        pkt->setControlInfo(lteInfo);
-        send(pkt, upperGateOut_);
+        // ----- My Code -----
+        if (1 <= tbDecoded_) {
+          lteInfo->setDeciderResult(interference_result);
+          pkt->setControlInfo(lteInfo);
+          send(pkt, upperGateOut_);
+        } else {
+          delete lteInfo;
+          delete pkt;
+        }
+        // ----- original code -----
+        // lteInfo->setDeciderResult(interference_result);
+        // pkt->setControlInfo(lteInfo);
+        // send(pkt, upperGateOut_);
+        // ----- My Code End -----
+
+
+
 
         if (getEnvir()->isGUI())
             updateDisplayString();

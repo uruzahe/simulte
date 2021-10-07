@@ -126,6 +126,7 @@ void Mode4App::handleLowerMessage(cMessage* msg)
         double channel_load = cbrPkt->getCbr();
         emit(cbr_, channel_load);
         delete cbrPkt;
+
     } else {
         // ----- Begin My Code -----
         if (veins::VeinsCarlaPacket* vc_pkt = dynamic_cast<veins::VeinsCarlaPacket*>(msg)) {
@@ -149,9 +150,9 @@ void Mode4App::handleLowerMessage(cMessage* msg)
 
             if ((std::string) vc_pkt->getType() == "cam") {
               json payload = json::parse(vc_pkt->getPayload());
-              if (sumo_id == "348" && payload["HF_Container"]["sumo_id"].get<std::string>() == "397") {
-                std::cout << recv_data["payload"] << std::endl;
-              }
+              // if (sumo_id == "348" && payload["HF_Container"]["sumo_id"].get<std::string>() == "397") {
+              //   std::cout << recv_data["payload"] << std::endl;
+              // }
               string_vector2file(cams_recv_json_file_path(carlaVeinsDataDir, sumo_id), { recv_data.dump() });
 
             } else if ((std::string) vc_pkt->getType() == "cpm") {
@@ -292,9 +293,9 @@ void Mode4App::syncCarlaVeinsData(cMessage* msg)
 
   // ----- send packets if SduQueue is empty. -----
   // ----- This is because the Sduqueue cannot store multiple packets in default codes. -----
-  if (!isSduQueueEmpty()) {
-    return;
-  }
+  // if (!isSduQueueEmpty()) {
+  //   return;
+  // }
 
   std::vector<json> target_cams = _cams_send_ptr->filter_cams_by_etsi(_cams_ptr->data_between_time(target_start_time, target_end_time));
 
@@ -304,7 +305,7 @@ void Mode4App::syncCarlaVeinsData(cMessage* msg)
     // if (sumo_id == "348" || sumo_id == "397") {
     //   std::cout << sumo_id << ": " << mobility->getCurrentPosition() << ", " << packet["payload"].get<std::string>() << std::endl;
     // }
-    std::cout << sumo_id << ": " << mobility->getCurrentPosition() << ", " << packet["payload"].get<std::string>() << std::endl;
+    // std::cout << sumo_id << ": " << mobility->getCurrentPosition() << ", " << packet["payload"].get<std::string>() << std::endl;
     SendPacket(packet["payload"].get<std::string>(), "cam", packet["size"].get<int>());
 
     return;
