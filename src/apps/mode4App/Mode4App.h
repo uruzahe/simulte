@@ -42,6 +42,7 @@
 #include <vector>
 
 using veins::TraCIMobility;
+using json = nlohmann::json;
 
 // My Code, End.
 
@@ -109,6 +110,8 @@ protected:
    void SendPacket(std::string payload, std::string type, int payload_byte_size);
    virtual void loadCarlaVeinsData(bool read_only);
    virtual void syncCarlaVeinsData(cMessage* msg);
+   void SendFlagPacket();
+   cMessage* selfFragSender_;
 
    veins::VeinsInetMobility* mobility;
    UmTxEntity* UmTxEntityPtr;
@@ -126,7 +129,7 @@ protected:
    // AppQueue is used to control SDU queue.
    // In default codes of OpenCV2X, sdu fragments are removed if new packets are generated in the application layer (See enque method of UmTxEntity.cc).
    // Therefore, we have to generate packets when SDU queue is empty.
-   std::vector<std::string> appQueue;
+   std::vector<json> appQueue;
 
    std::string veinsLockFile;
    std::string veinsTxtFile;

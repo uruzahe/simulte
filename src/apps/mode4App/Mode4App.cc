@@ -79,6 +79,7 @@ void Mode4App::initialize(int stage)
 
         // ----- My Code, Begin. -----
         EV_TRACE << "My Code" << std::endl;
+        selfFragSender_ = new cMessage("selfFragSender_");
 
         max_cpm_size = par("max_cpm_size").intValue();
         carlaVeinsDataDir = par("carlaVeinsDataDir").stringValue();
@@ -114,8 +115,8 @@ void Mode4App::initialize(int stage)
         receivedCPMs = 0;
         // ----- My Code, End. -----
 
-        double delay = 0.001 * intuniform(0, 1000, 0);
-        scheduleAt((simTime() + delay).trunc(SIMTIME_MS), selfSender_);
+        simtime_t first_send_time = simTime() + 0.001 * intuniform(0, 1000, 0);
+        scheduleAt(first_send_time.trunc(SIMTIME_MS), selfSender_);
     }
 }
 
@@ -205,8 +206,12 @@ void Mode4App::handleSelfMessage(cMessage* msg)
             packet->setControlInfo(lteControlInfo);
 
             Mode4BaseApp::sendLowerPackets(packet);
+
+        } else if (!strcmp(msg->getName(), "selfFlagSender")) {
+          SendFlagPacket();
+
         } else {
-            syncCarlaVeinsData(msg);
+          syncCarlaVeinsData(msg);
         }
 
 
@@ -251,7 +256,8 @@ bool Mode4App::isSduQueueEmpty()
     }
 }
 
-void Mode4App::SendPacket(std::string payload, std::string type, int payload_byte_size)
+
+void Mode4App::SendFlagPacket()
 {
   try {
       veins::VeinsCarlaPacket* packet = new veins::VeinsCarlaPacket();
@@ -280,6 +286,18 @@ void Mode4App::SendPacket(std::string payload, std::string type, int payload_byt
   } catch (...) {
       std::cout << "appQueue error: "<< payload.c_str() << "." << std::endl;
   }
+}
+
+void Mode4App::SendPacket(std::string payload, std::string type, int payload_byte_size)
+{
+  json flagment;
+
+  flagment["payload"] = payload;
+  flagment["type"] = type;
+  flagment["total_byte_size"] = payload_byte_size;
+  flagment["current_byte_size"] = payload_byte_size;
+
+  appQueue.push_back(flagment);
 }
 
 void Mode4App::syncCarlaVeinsData(cMessage* msg)
@@ -328,6 +346,9 @@ void Mode4App::syncCarlaVeinsData(cMessage* msg)
 void Mode4App::finish()
 {
     cancelAndDelete(selfSender_);
+    // ----- My Code -----
+    cancelAndDelete(selfFlagSender_);
+    // ----- My Code End -----
 }
 
 Mode4App::~Mode4App()
