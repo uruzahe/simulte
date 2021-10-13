@@ -161,7 +161,7 @@ class LtePhyUe : public LtePhyBase
         std::vector<UsedRBs>::iterator it = usedRbs_.begin();
         for (; it != usedRbs_.end(); ++it)
         {
-            if (it->time_ == NOW-0.001)
+            if (it->time_ == NOW-TTI)
                 return it->rbMap_[antenna][b];
         }
         return 0;
@@ -172,7 +172,7 @@ class LtePhyUe : public LtePhyBase
         double usedRBs = 0.0;
         for (; it != usedRbs_.end(); ++it)
         {
-            if (it->time_ == NOW-0.001){
+            if (it->time_ == NOW-TTI){
                 for(unsigned int i=0;i<numBands;i++) {
                     if (it->rbMap_[antenna][i] != 0)
                         usedRBs++;

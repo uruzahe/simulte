@@ -1694,7 +1694,7 @@ double LteRealisticChannelModel::jakesFading(MacNodeId nodeId, double speed,
     double f = carrierFrequency_ * 1000000000;
 
     //get transmission time start (TTI =1ms)
-    simtime_t t = simTime().dbl() - 0.001;
+    simtime_t t = simTime().dbl() - TTI;
 
     double re_h = 0;
     double im_h = 0;
@@ -2877,4 +2877,3 @@ bool LteRealisticChannelModel::computeInCellD2DInterference(MacNodeId eNbId, Mac
 
     return true;
 }
-

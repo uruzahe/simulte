@@ -544,13 +544,13 @@ double LteMacVUeMode4::calculateChannelOccupancyRatio(int period){
         if (it->first < NOW.dbl() - 1){
             it = previousTransmissions_.erase(it);
             continue;
-        } else if (it->first > NOW.dbl() - (0.001 * a)) {
+        } else if (it->first > NOW.dbl() - (TTI * a)) {
             subchannelsUsed += it->second;
         }
         it++;
     }
     // calculate cr
-    return subchannelsUsed /(numSubchannels_ * 1000.0);
+    return subchannelsUsed /(numSubchannels_ * (1 / TTI));
 }
 
 void LteMacVUeMode4::handleMessage(cMessage *msg)

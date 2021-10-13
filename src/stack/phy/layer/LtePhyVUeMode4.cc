@@ -299,7 +299,7 @@ void LtePhyVUeMode4::handleSelfMessage(cMessage *msg)
         if (cbrCountDown_ == 0) {
             // Ensures we update CBR every 100ms
             updateCBR();
-            cbrCountDown_ = 99;
+            cbrCountDown_ = (1 / TTI) / 10;
         } else {
             cbrCountDown_ --;
         }

@@ -196,7 +196,7 @@ void LteDlFeedbackGenerator::handleMessage(cMessage *msg)
 void LteDlFeedbackGenerator::sensing(FbPeriodicity per)
 {
     if (per == PERIODIC && tAperiodicTx_->busy()
-        && tAperiodicTx_->elapsed() < 0.001)
+        && tAperiodicTx_->elapsed() < TTI)
     {
         /* In this TTI an APERIODIC sensing has been done
          * (an APERIODIC tx is scheduled).
@@ -216,7 +216,7 @@ void LteDlFeedbackGenerator::sensing(FbPeriodicity per)
     }
 
     if (per == APERIODIC && tPeriodicTx_->busy()
-        && tPeriodicTx_->elapsed() < 0.001)
+        && tPeriodicTx_->elapsed() < TTI)
     {
         /* In this TTI a PERIODIC sensing has been done.
          * Deschedule the PERIODIC tx and continue with APERIODIC.

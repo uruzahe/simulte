@@ -52,7 +52,8 @@ class ExtCell;
 #define ELEM(x) {x,#x}
 
 /// Transmission time interval
-#define TTI 0.001
+// #define TTI 0.001
+#define TTI 0.0005
 
 /// Current simulation time
 #define NOW simTime()
@@ -910,4 +911,3 @@ void parseStringToIntArray(std::string str, int* values, int dim, int pad);
 void initializeAllChannels(cModule *mod);
 
 #endif
-
