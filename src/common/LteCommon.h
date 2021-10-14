@@ -53,7 +53,21 @@ class ExtCell;
 
 /// Transmission time interval
 // #define TTI 0.001
-#define TTI 0.0005
+
+// ----- Begin My Code -----
+// In order to improve throughput, we decrease the value of TTI.
+// This approach is the same swith NR V2X in which TTI is decreased by increasing Subcarrier Spacing (SPS).
+// The bler curves slitely change from 15 to 60 [1], and we argue that this modification is valid.
+// [1] Garcia, M. H. C., Molina-Galan, A., Boban, M., Gozalvez, J., Coll-Perales, B., Sahin, T., & Kousaridas, A. (2021). A Tutorial on 5G NR V2X Communications. IEEE Communications Surveys and Tutorials. https://doi.org/10.1109/COMST.2021.3057017.
+//
+// SCS (SubCarrier Spacing): TTI
+// 15   0.001
+// 30   0.0005
+// 60   0.00025
+#define SCS 15
+#define MS_2_SLOT (SCS / 15)
+#define TTI (0.001 / MS_2_SLOT)
+// ----- end My Code -----
 
 /// Current simulation time
 #define NOW simTime()

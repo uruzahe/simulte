@@ -114,7 +114,7 @@ void Mode4App::initialize(int stage)
         receivedCPMs = 0;
         // ----- My Code, End. -----
 
-        double delay = 0.001 * intuniform(0, 1000, 0);
+        double delay = TTI * intuniform(0, 1000, 0);
         scheduleAt((simTime() + delay).trunc(SIMTIME_MS), selfSender_);
     }
 }

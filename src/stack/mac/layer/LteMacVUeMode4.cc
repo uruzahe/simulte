@@ -522,10 +522,13 @@ double LteMacVUeMode4::calculateChannelOccupancyRatio(int period){
     int subchannelsUsed = 0;
     // CR limit calculation
     // determine b
+    int total_slot = 1 / TTI;
+    int half_total_slot = total_slot / 2;
+
     if (schedulingGrant_ != NULL){
         LteMode4SchedulingGrant* mode4Grant = check_and_cast<LteMode4SchedulingGrant*>(schedulingGrant_);
-        if (expirationCounter_ > 499){
-            b = 499;
+        if (expirationCounter_ > half_total_slot - 1){
+            b = half_total_slot - 1;
         } else {
             b = expirationCounter_;
         }
@@ -534,7 +537,7 @@ double LteMacVUeMode4::calculateChannelOccupancyRatio(int period){
         b = 0;
     }
     // determine a
-    a = 999 - b;
+    a = total_slot - b;
 
     // determine previous transmissions -> Need to account for if we have already done a drop. Must maintain a
     // history of past transmissions i.e. subchannels used and subframe in which they occur. delete entries older
@@ -550,7 +553,7 @@ double LteMacVUeMode4::calculateChannelOccupancyRatio(int period){
         it++;
     }
     // calculate cr
-    return subchannelsUsed /(numSubchannels_ * (1 / TTI));
+    return subchannelsUsed /(numSubchannels_ * total_slot;
 }
 
 void LteMacVUeMode4::handleMessage(cMessage *msg)
@@ -1039,7 +1042,7 @@ void LteMacVUeMode4::macGenerateSchedulingGrant(double maximumLatency, int prior
 
     // Priority is the most difficult part to figure out, for the moment I will assign it as a fixed value
     mode4Grant -> setSpsPriority(priority);
-    mode4Grant -> setPeriod(resourceReservationInterval_ * 100);
+    mode4Grant -> setPeriod(resourceReservationInterval_ * 100 * MS_2_SLOT);
     mode4Grant -> setMaximumLatency(maximumLatency);
     mode4Grant -> setPossibleRRIs(validResourceReservationIntervals_);
 

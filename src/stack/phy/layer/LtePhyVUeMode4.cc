@@ -43,7 +43,7 @@ void LtePhyVUeMode4::initialize(int stage)
     {
         adjacencyPSCCHPSSCH_ = par("adjacencyPSCCHPSSCH");
         sensingWindowSizeOverride_ = par("sensingWindowSizeOverride");
-        pStep_ = par("pStep");
+        pStep_ = par("pStep") * MS_2_SLOT;
         selectionWindowStartingSubframe_ = par("selectionWindowStartingSubframe");
         numSubchannels_ = par("numSubchannels");
         subchannelSize_ = par("subchannelSize");
@@ -127,7 +127,7 @@ void LtePhyVUeMode4::initialize(int stage)
 
         sensingWindowFront_ = 0; // Will ensure when we first update the sensing window we don't skip over the first element
 
-        cbrCountDown_ = intuniform(0, 1000);
+        cbrCountDown_ = intuniform(0, 1 / TTI);
     }
     else if (stage == INITSTAGE_NETWORK_LAYER_2)
     {
@@ -299,7 +299,7 @@ void LtePhyVUeMode4::handleSelfMessage(cMessage *msg)
         if (cbrCountDown_ == 0) {
             // Ensures we update CBR every 100ms
             updateCBR();
-            cbrCountDown_ = (1 / TTI) / 10;
+            cbrCountDown_ = 100 * MS_2_SLOT;
         } else {
             cbrCountDown_ --;
         }
@@ -536,9 +536,9 @@ void LtePhyVUeMode4::computeCSRs(LteMode4SchedulingGrant* &grant) {
     EV << NOW << " LtePhyVUeMode4::computeCSRs - going through sensing window to compute CSRS..." << endl;
     // Determine the total number of possible CSRs
     if (grant->getMaximumLatency() >= 100) {
-        if (grant->getPeriod() == 50){
+        if (grant->getPeriod() == 50 * MS_2_SLOT){
             grant->setMaximumLatency(50);
-        } else if (grant->getPeriod() == 20){
+        } else if (grant->getPeriod() == 20 * MS_2_SLOT){
             grant->setMaximumLatency(20);
         } else {
             grant->setMaximumLatency(100);
@@ -551,7 +551,7 @@ void LtePhyVUeMode4::computeCSRs(LteMode4SchedulingGrant* &grant) {
     int pRsvpTx = grant->getPeriod();
     int grantLength = grant->getNumSubchannels();
     int cResel = grant->getResourceReselectionCounter();
-    int maxLatency = grant->getMaximumLatency();
+    int maxLatency = grant->getMaximumLatency() * MS_2_SLOT;
     std::vector<double> allowedRRIs = grant->getPossibleRRIs();
 
     int sensingWindowLength = pStep_ * 10;
@@ -592,7 +592,7 @@ void LtePhyVUeMode4::computeCSRs(LteMode4SchedulingGrant* &grant) {
     // of the selection process, thus we can skip a majority of the sensing window saving time.
     // Only in the case of RRIs of 1000ms will the whole sensing window need to be searched.
     double maxRRI = *std::max_element(allowedRRIs.begin(), allowedRRIs.end());
-    int fallBack = 100 * maxRRI;
+    int fallBack = 100 * maxRRI * MS_2_SLOT;
 
     if (fallBack >= sensingWindowLength)
     {
@@ -605,7 +605,7 @@ void LtePhyVUeMode4::computeCSRs(LteMode4SchedulingGrant* &grant) {
     while (z < sensingWindow_.size()) {
         // The use of z is to correspond with the notation in the standard see 3GPP TS 36.213 14.1.1.6
 
-        int pRsvpTxPrime = pStep_ * pRsvpTx / 100;
+        int pRsvpTxPrime = pStep_ * pRsvpTx / (100 * MS_2_SLOT);
         int Q = 1;
 
         // Check if frame is sensed or not.
@@ -900,13 +900,13 @@ std::vector<std::tuple<double, int, int>> LtePhyVUeMode4::selectBestRSSIs(std::u
 {
     EV << NOW << " LtePhyVUeMode4::selectBestRSSIs - Selecting best CSRs from possible CSRs..." << endl;
     int decrease = pStep_;
-    if (grant->getPeriod() < 100)
+    if (grant->getPeriod() < 100 * MS_2_SLOT)
     {
         // Same as pPrimeRsvpTx from other parts of the function
-        decrease = (pStep_ * grant->getPeriod())/100;
+        decrease = (pStep_ * grant->getPeriod()) / (100 * MS_2_SLOT);
     }
 
-    int maxLatency = grant->getMaximumLatency();
+    int maxLatency = grant->getMaximumLatency() * MS_2_SLOT;
 
     int sensingWindowLength = pStep_ * 10;
     if (sensingWindowSizeOverride_ > 0){
@@ -994,13 +994,13 @@ std::vector<std::tuple<double, int, int>> LtePhyVUeMode4::selectBestRSRPs(std::u
 {
     EV << NOW << " LtePhyVUeMode4::selectBestRSSIs - Selecting best CSRs from possible CSRs..." << endl;
     int decrease = pStep_;
-    if (grant->getPeriod() < 100)
+    if (grant->getPeriod() < 100 * MS_2_SLOT)
     {
         // Same as pPrimeRsvpTx from other parts of the function
-        decrease = (pStep_ * grant->getPeriod())/100;
+        decrease = (pStep_ * grant->getPeriod()) / (100 * MS_2_SLOT);
     }
 
-    int maxLatency = grant->getMaximumLatency();
+    int maxLatency = grant->getMaximumLatency() * MS_2_SLOT;
 
     int sensingWindowLength = pStep_ * 10;
     if (sensingWindowSizeOverride_ > 0){
@@ -1114,12 +1114,12 @@ SidelinkControlInformation* LtePhyVUeMode4::createSCIMessage()
      */
     if (sciGrant_->getExpiration() != 0)
     {
-        if (sciGrant_->getPeriod() == 50){
+        if (sciGrant_->getPeriod() == 50 * MS_2_SLOT){
             sci->setResourceReservationInterval(11);
-        } else if (sciGrant_->getPeriod() == 20) {
+        } else if (sciGrant_->getPeriod() == 20 * MS_2_SLOT) {
             sci->setResourceReservationInterval(12);
         } else {
-            sci->setResourceReservationInterval(sciGrant_->getPeriod() / 100);
+            sci->setResourceReservationInterval(sciGrant_->getPeriod() / MS_2_SLOT / 100);
         }
     }
     else
@@ -1574,8 +1574,12 @@ void LtePhyVUeMode4::updateCBR()
     int cbrCount = 0;
     int totalSubchannels = 0;
 
-    if (sensingWindow_.size() > 99){
-        cbrCount = 99;
+    // ----- Begin My Code -----
+    int slots_less_than_100_ms = 100 * MS_2_SLOT - 1;
+    // ----- End My Code -----
+
+    if (sensingWindow_.size() > slots_less_than_100_ms){
+        cbrCount = slots_less_than_100_ms;
     } else{
         cbrCount = sensingWindow_.size();
     }
