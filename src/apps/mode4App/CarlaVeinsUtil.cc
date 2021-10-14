@@ -25,6 +25,9 @@ void JsonDataStore::load_json_strs(std::vector<std::string> json_strs){
   for (auto data_pointer = json_strs.begin(); data_pointer != json_strs.end(); data_pointer++) {
     load_json_str(*data_pointer);
   }
+
+  // ----- For unloding too many data -----
+  _data = this->data_between_time(149, 170);
 }
 
 

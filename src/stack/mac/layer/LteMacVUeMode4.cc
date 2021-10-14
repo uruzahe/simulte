@@ -553,7 +553,7 @@ double LteMacVUeMode4::calculateChannelOccupancyRatio(int period){
         it++;
     }
     // calculate cr
-    return subchannelsUsed /(numSubchannels_ * total_slot;
+    return subchannelsUsed /(numSubchannels_ * total_slot);
 }
 
 void LteMacVUeMode4::handleMessage(cMessage *msg)

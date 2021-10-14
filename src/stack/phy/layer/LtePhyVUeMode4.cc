@@ -43,7 +43,8 @@ void LtePhyVUeMode4::initialize(int stage)
     {
         adjacencyPSCCHPSSCH_ = par("adjacencyPSCCHPSSCH");
         sensingWindowSizeOverride_ = par("sensingWindowSizeOverride");
-        pStep_ = par("pStep") * MS_2_SLOT;
+        pStep_ = par("pStep");
+        pStep_ = pStep_ * MS_2_SLOT;
         selectionWindowStartingSubframe_ = par("selectionWindowStartingSubframe");
         numSubchannels_ = par("numSubchannels");
         subchannelSize_ = par("subchannelSize");
