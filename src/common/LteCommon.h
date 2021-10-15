@@ -65,7 +65,7 @@ class ExtCell;
 // 30   0.0005
 // 60   0.00025
 #define SCS 60
-#define MS_2_SLOT (SCS / 15)
+#define MS_2_SLOT (int)(SCS / 15)
 #define SLOT_2_MS (1.0 / MS_2_SLOT)
 #define TTI (0.001 / MS_2_SLOT)
 // ----- end My Code -----

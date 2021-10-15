@@ -1120,7 +1120,7 @@ SidelinkControlInformation* LtePhyVUeMode4::createSCIMessage()
         } else if (sciGrant_->getPeriod() == 20 * MS_2_SLOT) {
             sci->setResourceReservationInterval(12);
         } else {
-            sci->setResourceReservationInterval(sciGrant_->getPeriod() / MS_2_SLOT / 100);
+            sci->setResourceReservationInterval(sciGrant_->getPeriod() / 100 * SLOT_2_MS);
         }
     }
     else
