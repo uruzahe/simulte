@@ -537,7 +537,7 @@ double LteMacVUeMode4::calculateChannelOccupancyRatio(int period){
         b = 0;
     }
     // determine a
-    a = total_slot - b;
+    a = (total_slot - 1) - b;
 
     // determine previous transmissions -> Need to account for if we have already done a drop. Must maintain a
     // history of past transmissions i.e. subchannels used and subframe in which they occur. delete entries older
@@ -948,7 +948,7 @@ void LteMacVUeMode4::macHandleSps(cPacket* pkt)
 
     std::tuple<double, int, int> selectedCR = CSRs[index];
     // Gives us the time at which we will send the subframe.
-    simtime_t selectedStartTime = (simTime() + SimTime(std::get<1>(selectedCR), SIMTIME_MS) - TTI).trunc(SIMTIME_MS);
+    simtime_t selectedStartTime = (simTime() + SimTime(std::get<1>(selectedCR) * SLOT_2_MS, SIMTIME_MS) - TTI).trunc(SIMTIME_MS);
 
     emit(grantStartTime, selectedStartTime);
 
@@ -1107,7 +1107,7 @@ void LteMacVUeMode4::macGenerateSchedulingGrant(double maximumLatency, int prior
     }
 
     mode4Grant -> setResourceReselectionCounter(resourceReselectionCounter);
-    mode4Grant -> setExpiration(resourceReselectionCounter * resourceReservationInterval);
+    mode4Grant -> setExpiration(resourceReselectionCounter * resourceReservationInterval * MS_2_SLOT);
     emit(rrcSelected, resourceReselectionCounter);
 
     LteMode4SchedulingGrant* phyGrant = mode4Grant->dup();
