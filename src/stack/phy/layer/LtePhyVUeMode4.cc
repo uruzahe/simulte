@@ -300,7 +300,7 @@ void LtePhyVUeMode4::handleSelfMessage(cMessage *msg)
         if (cbrCountDown_ == 0) {
             // Ensures we update CBR every 100ms
             updateCBR();
-            cbrCountDown_ = 100 * MS_2_SLOT;
+            cbrCountDown_ = 100 * MS_2_SLOT - 1;
         } else {
             cbrCountDown_ --;
         }
