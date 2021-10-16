@@ -1226,6 +1226,7 @@ void LtePhyVUeMode4::storeAirFrame(LteAirFrame* newFrame)
 
     // Need to be able to figure out which subchannel is associated to the Rbs in this case
     if (newInfo->getFrameType() == SCIPKT){
+        EV << "Received: SCI" << std::endl;
         sciFrames_.push_back(newFrame);
         sciRsrpVectors_.push_back(rsrpVector);
         sciRssiVectors_.push_back(rssiVector);
@@ -1233,6 +1234,7 @@ void LtePhyVUeMode4::storeAirFrame(LteAirFrame* newFrame)
         sciAttenuations_.push_back(attenuation);
     }
     else{
+        EV << "Received: Frame" << std::endl;
         tbFrames_.push_back(newFrame);
         tbRsrpVectors_.push_back(rsrpVector);
         tbRssiVectors_.push_back(rssiVector);
