@@ -948,7 +948,24 @@ void LteMacVUeMode4::macHandleSps(cPacket* pkt)
 
     std::tuple<double, int, int> selectedCR = CSRs[index];
     // Gives us the time at which we will send the subframe.
-    simtime_t selectedStartTime = (simTime() + SimTime(std::get<1>(selectedCR) * SLOT_2_MS, SIMTIME_MS) - TTI).trunc(SIMTIME_MS);
+    // std::cout <<
+    //   "DEBUG: slot: " << std::get<1>(selectedCR) <<
+    //   ", NOW: "  << simTime() <<
+    //   // ", SLOT_2_MS: " << SLOT_2_MS <<
+    //   ", time: " << SimTime(std::get<1>(selectedCR) * SLOT_2_MS) <<
+    //   ", time(ms): " << SimTime(std::get<1>(selectedCR) * SLOT_2_MS, SIMTIME_MS) <<
+    //   ", time(ns): " << SimTime(std::get<1>(selectedCR) * SLOT_2_MS / 1000.0) <<
+    //   // ", time(ns) * 1000: " << SimTime(std::get<1>(selectedCR) * SLOT_2_MS, SIMTIME_US) * 1000 <<
+    //   ", send time: " << (simTime() + SimTime(std::get<1>(selectedCR) * SLOT_2_MS, SIMTIME_MS) - TTI).trunc(SIMTIME_MS) <<
+    //   ", new time: " << (simTime() + SimTime(std::get<1>(selectedCR) * SLOT_2_MS / 1000.0) - TTI).trunc(SIMTIME_US) <<
+    //   "" << endl;
+    
+    // ----- Begin Modification -----
+    // ----- Original -----
+    // simtime_t selectedStartTime = (simTime() + SimTime(std::get<1>(selectedCR) * SLOT_2_MS, SIMTIME_MS) - TTI).trunc(SIMTIME_MS);
+    // ----- My Code -----
+    simtime_t selectedStartTime = (simTime() + SimTime(std::get<1>(selectedCR) * SLOT_2_MS / 1000.0) - TTI).trunc(SIMTIME_US);
+    // ----- End Modification -----
 
     emit(grantStartTime, selectedStartTime);
 

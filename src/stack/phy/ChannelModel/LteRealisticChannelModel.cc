@@ -2802,6 +2802,7 @@ bool LteRealisticChannelModel::computeInCellD2DInterference(MacNodeId eNbId, Mac
         }
         ltePhy = (*it)->phy;
 
+        // EV << "DEBUG: Now: " << NOW << ", interferringId: " << interferringId << ", isCqi: " << isCqi << ", getLastActive(): " << ltePhy->getLastActive() << std::endl;
         if (isCqi && ltePhy->getLastActive() != NOW)  // if we are computing feedback and the interfering UE has not transmitted in this TTI, skip
             continue;
         if (!isCqi && ltePhy->getLastActive() != NOW - TTI)  // if we are decoding a transmission and the interfering UE has not transmitted in the previous TTI, skip
