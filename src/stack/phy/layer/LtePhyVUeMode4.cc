@@ -1640,7 +1640,12 @@ void LtePhyVUeMode4::updateSubframe()
 
     std::vector<Subchannel*> subframe = sensingWindow_[sensingWindowFront_];
 
-    if (subframe.at(0)->getSubframeTime() <= NOW - SimTime(sensingWindowLength, SIMTIME_MS) - TTI)
+    // ----- Begin Modification -----
+    // ----- Original -----
+    // if (subframe.at(0)->getSubframeTime() <= NOW - SimTime(sensingWindowLength, SIMTIME_MS) - TTI)
+    // ----- My Code -----
+    if (subframe.at(0)->getSubframeTime() <= NOW - SimTime(sensingWindowLength * SLOT_2_MS / 1000.0) - TTI)
+    // ----- End Modification -----
     {
         std::vector<Subchannel*>::iterator it;
         for (it=subframe.begin(); it!=subframe.end(); it++)
