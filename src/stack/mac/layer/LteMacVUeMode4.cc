@@ -647,7 +647,7 @@ void LteMacVUeMode4::handleMessage(cMessage *msg)
             {
                 macGenerateSchedulingGrant(remainingTime_, lteInfo->getPriority());
             }
-            else if ((schedulingGrant_ != NULL && periodCounter_ > remainingTime_))
+            else if ((schedulingGrant_ != NULL && periodCounter_ * SLOT_2_MS > remainingTime_))
             {
                 emit(grantBreakTiming, 1);
                 delete schedulingGrant_;
@@ -959,7 +959,7 @@ void LteMacVUeMode4::macHandleSps(cPacket* pkt)
     //   ", send time: " << (simTime() + SimTime(std::get<1>(selectedCR) * SLOT_2_MS, SIMTIME_MS) - TTI).trunc(SIMTIME_MS) <<
     //   ", new time: " << (simTime() + SimTime(std::get<1>(selectedCR) * SLOT_2_MS / 1000.0) - TTI).trunc(SIMTIME_US) <<
     //   "" << endl;
-    
+
     // ----- Begin Modification -----
     // ----- Original -----
     // simtime_t selectedStartTime = (simTime() + SimTime(std::get<1>(selectedCR) * SLOT_2_MS, SIMTIME_MS) - TTI).trunc(SIMTIME_MS);

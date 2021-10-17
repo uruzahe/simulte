@@ -201,9 +201,76 @@ json POHandler::convert_payload_and_size(std::vector<json> perceived_objects, in
 }
 // ----- End: POHandler -----
 
+// ----- Begin: VirtualTxSduQueue -----
+VirtualTxSduQueue::VirtualTxSduQueue()
+{
+  _past_fragments = {};
+  // As the priority index is lower, more the priority becomes high.
+  // The index 0 indicates the most important packet.
+
+  _priority2packets[0] = {};
+  _priority2packets[1] = {};
+  _priority2packets[2] = {};
+  _priority2packets[3] = {};
+}
+
+json VirtualTxSduQueue::formatted_packet(std::string payload, std::string type, int payload_byte_size, double current_time, double duration)
+{
+  json packet;
+  packet["payload"] = payload;
+  packet["type"] = type;
+  packet["byte"] = payload_byte_size;
+  packet["generatted_time"] = current_time;
+  packet["expired_time"] = current_time + duration;
+
+  return packet;
+}
+
+void VirtualTxSduQueue::enque(int priority, json packet)
+{
+  _priority2packets[priority].push_back(packet);
+}
+
+json VirtualTxSduQueue::generate_PDU(int maximum_byte)
+{
+
+
+}
+
+
+json VirtualTxSduQueue::minimum_Bps(double current_time)
+{
+  double Bps = 0;
+
+  for (auto ptr = _priority2packets.begin(); ptr != _priority2packets.end(); ptr++){
+    fragments = ptr->second;
+    total_byte = 0
+    expired_time = 0
+
+    auto itr = fragments.begin();
+    while (itr != fragments.end()) {
+      if (current_time < (*itr)["expired_time"]) {
+        total_byte += (*itr)["byte"];
+        expired_time = (*itr)["expired_time"];
+        itr++;
+
+      } else {
+        fragments.erase(itr);
+
+      }
+    }
+
+    if (current_time < expired_time) {
+      Bps += ((double) total_byte) / (expired_time - current_time) ;
+    }
+  }
+
+  return Bps;
+}
+// ----- End: VirtualTxSduQueue -----
+
 
 // ----- Begin: function -----
-
 std::string cams_json_file_path(std::string data_sync_dir, std::string sumo_id)
 {
   return data_sync_dir + sumo_id + "_cams.json";
@@ -352,5 +419,32 @@ std::vector<std::string> get_cpm_payloads_from_carla(std::string sumo_id, std::s
     //    lock((data_sync_dir + sensor_data_file_name).c_str(), (data_sync_dir + sensor_lock_file_name).c_str());
     return file2string_vector(data_sync_dir + sensor_data_file_name, read_only);
     //    unlink((data_sync_dir + sensor_lock_file_name).c_str());
+}
+
+json Bps2packet_size_and_rri(double minimum_Bps)
+{
+  json result;
+  result["size"] = 800;
+  result["rri"] = 0.02;
+
+  std::vector<int> possible_bytes = {300, 450, 600, 800};
+  std::vector<double> possible_rris = {0.1, 0.05, 0.02};
+
+  for (auto byte_ptr = possible_bytes; byte_ptr != possible_bytes.end(); byte_ptr++) {
+    for (auto rri_ptr = possible_rris.begin(); rri_ptr != possible_rris.end(); rri_ptr++) {
+      if (minimum_Bps <= (*byte_ptr) / (*rri_ptr)) {
+        result["size"] = (*byte_ptr)
+        result["rri"] = (*rri_ptr)
+
+        return result;
+
+      } else {
+        continue;
+
+      }
+    }
+  }
+
+  return result;
 }
 // ----- End: function -----

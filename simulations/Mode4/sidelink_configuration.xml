@@ -3,14 +3,16 @@
 		<userEquipment-txParameters>
 			<parameter name="minMCS-PSSCH" type="double" value="7"/>
 			<parameter name="maxMCS-PSSCH" type="double" value="7"/>
-			<parameter name="minSubchannel-NumberPSSCH" type="double" value="2"/>
-			<parameter name="maxSubchannel-NumberPSSCH" type="double" value="2"/>
+			<parameter name="minSubchannel-NumberPSSCH" type="double" value="5"/>
+			<parameter name="maxSubchannel-NumberPSSCH" type="double" value="5"/>
 			<parameter name="allowedRetxNumberPSSCH" type="double" value="0"/>
 		</userEquipment-txParameters>
 
 		<RestrictResourceReservationPeriodList>
 			<RestrictResourceReservationPeriod>
 				<parameter name="rri" type="double" value="1"/>
+				<parameter name="rri" type="double" value="0.5"/>
+				<parameter name="rri" type="double" value="0.2"/>
 			</RestrictResourceReservationPeriod>
 		</RestrictResourceReservationPeriodList>
 

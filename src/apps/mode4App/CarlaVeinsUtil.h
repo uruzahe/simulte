@@ -80,6 +80,28 @@ class POSendHandler : public POHandler
 {
 };
 
+class VirtualTxSduQueue:
+{
+public:
+  json _fragment;
+  std::vector<json> _past_fragments;
+  std::unordered_map<int, json> _priority2packets;
+
+  VirtualTxSduQueue();
+  void enque(json packet);
+  json formatted_packet(std::string payload, std::string type, int payload_byte_size, double current_time, double duration);
+  json generate_PDU();
+};
+
+class VirtualRxSduQueue:
+{
+public:
+  std::unordered_map<std::string, std::vector<json>> sender2fragments;
+
+  VirtualRxSduQueue();
+  std::vector<json> enque_and_decode(json fragment);
+}
+
 json add_time_attribute_to_json(json data, std::string attr_name, double t);
 
 std::string cams_json_file_path(std::string data_sync_dir, std::string sumo_id);
