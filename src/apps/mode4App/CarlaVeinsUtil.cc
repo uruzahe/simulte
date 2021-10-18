@@ -205,6 +205,8 @@ json POHandler::convert_payload_and_size(std::vector<json> perceived_objects, in
 VirtualTxSduQueue::VirtualTxSduQueue()
 {
   _past_fragments = {};
+  _delete_expired_time = 0;
+  _fragment = NULL;
   // As the priority index is lower, more the priority becomes high.
   // The index 0 indicates the most important packet.
 
@@ -214,22 +216,52 @@ VirtualTxSduQueue::VirtualTxSduQueue()
   _priority2packets[3] = {};
 }
 
-json VirtualTxSduQueue::formatted_packet(std::string payload, std::string type, int payload_byte_size, double current_time, double duration)
+void VirtualTxSduQueue::delete_expired_fragments(double current_time)
 {
-  json packet;
-  packet["payload"] = payload;
-  packet["type"] = type;
-  packet["size"] = payload_byte_size;
-  packet["generatted_time"] = current_time;
-  packet["expired_time"] = current_time + duration;
 
-  return packet;
+  if (_delete_expired_time < current_time) {
+    _delete_expired_time = current_time;
+  } else {
+    return;
+  }
+
+  if (_fragment != NULL && _fragment["expired_time"].get<double>() <= current_time) {
+    _fragment = NULL;
+  }
+  std::cout << "_fragment is NULL" << std::endl;
+
+  for (auto ptr = _priority2packets.begin(); ptr != _priority2packets.end(); ptr++) {
+    auto itr = ptr->second.begin();
+
+    while (itr != ptr->second.end()) {
+      std::cout << "in loop: " << (*itr) << std::endl;
+      if ((*itr)["expired_time"].get<double>() <= current_time) {
+        ptr->second.erase(itr);
+      } else {
+        itr++;
+      }
+    }
+  }
+
 }
 
-json VirtualTxSduQueue::formatted_fragment(json packet, int leftted_size, int status_flag) {
+// json VirtualTxSduQueue::formatted_packet(std::string payload, std::string type, int payload_byte_size, double current_time, double duration)
+// {
+//   json packet;
+//   packet["payload"] = payload;
+//   packet["type"] = type;
+//   packet["size"] = payload_byte_size;
+//   packet["generatted_time"] = current_time;
+//   packet["expired_time"] = current_time + duration;
+//
+//   return packet;
+// }
+
+json VirtualTxSduQueue::formatted_fragment(json packet, int lefted_size, int status_flag) {
   json fragment = packet;
+
   fragment["lefted_size"] = lefted_size;
-  fragment["status_flag"] = status_flag;
+  fragment["status_flag"] = status_flag; // 01: start flag, 10: end flag, 11: packet, 00: middle frag
   fragment["seq"] = _past_fragments.size();
 
   _past_fragments.push_back(fragment);
@@ -237,74 +269,147 @@ json VirtualTxSduQueue::formatted_fragment(json packet, int leftted_size, int st
   return fragment;
 }
 
-void VirtualTxSduQueue::enque(int priority, json packet)
-{
-  _priority2packets[priority].push_back(packet);
+json VirtualTxSduQueue::update_fragment(json fragment, int lefted_size, int status_flag) {
+  fragment["lefted_size"] = lefted_size;
+  fragment["status_flag"] = status_flag;
+
+  return fragment;
 }
 
-json VirtualTxSduQueue::generate_PDU(int maximum_byte, double current_time)
-{
+json VirtualTxSduQueue::formatted_pdu(int maximum_size, double current_time) {
   json pdu;
+  pdu["maximum_size"] = maximum_size;
+  pdu["timestamp"] = current_time;
+  pdu["duration"] = 100;
   pdu["size"] = 0;
   pdu["type"] = "pdu";
   pdu["sdus"] = {};
 
-  int lefted_size = maximum_byte;
+  return pdu;
+}
 
+void VirtualTxSduQueue::enque(int priority, json packet)
+{
+  _priority2packets[priority].push_back(packet);
+  _delete_expired_time = 0;
+}
 
-  if (_fragment != Null && _fragment["leftted_size"] <= lefted_size) {
-    pdu["sdus"].push_back(_fragment);
-    _fragment = Null;
+json VirtualTxSduQueue::update_pdu_by_fragment(json pdu, double current_time) {
+  int lefted_size = pdu["maximum_size"].get<int>() - pdu["size"].get<int>();
 
-  } else {
-    json send_fragment = _fragment;
-    send_fragment["size"] = lefted_size;
-    send_fragment[]
-  }
+  if (_fragment != NULL && 0 < lefted_size) {
+    if (_fragment["lefted_size"].get<int>() <= lefted_size) {
+      pdu = this->add_fragment_into_pdu(
+          pdu,
+          this->update_fragment(
+            _fragment,
+            _fragment["lefted_size"].get<int>(),
+            _fragment["status_flag"].get<int>() + 10
+          ),
+          current_time
+      );
 
+      _fragment = NULL;
 
-  for (auto ptr = _priority2packets.begin(); ptr != _priority2packets.end(); ptr++) {
-    auto itr = fragments.begin();
+    } else {
+      pdu = this->add_fragment_into_pdu(
+          pdu,
+          this->update_fragment(
+            _fragment,
+            lefted_size,
+            _fragment["status_flag"].get<int>()
+          ),
+          current_time
+      );
 
-    while (itr != fragments.end()) {
-      if ((*itr)["expired_time"] < current_time) {
-        fragments.erase(itr);
-        continue;
-      }
+      _fragment = formatted_fragment(_fragment, _fragment["lefted_size"].get<int>() - lefted_size, 0);
     }
   }
 
-
-
-
-
+  return pdu;
 }
+
+json VirtualTxSduQueue::add_fragment_into_pdu(json pdu, json send_fragment, double current_time)
+{
+  std::vector<json> sdus;
+  if (pdu.find("sdu") != pdu.end()) {
+    std::cout << "find sdu" << std::endl;
+    sdus = pdu["sdus"].get<std::vector<json>>();
+  }
+  std::cout << "end find sdu" << std::endl;
+
+  double tmp_duration = (send_fragment["expired_time"].get<double>() - current_time) * 1000.0;
+  std::cout << "tmp_duration: " << tmp_duration << "duration: " << int(tmp_duration) << std::endl;
+  if (sdus.size() == 0 || tmp_duration < pdu["duration"].get<int>()) {
+    pdu["duration"] = (int)(tmp_duration + 1);
+  }
+
+  sdus.push_back(send_fragment);
+  pdu["sdus"] = sdus;
+
+  pdu["size"] = pdu["size"].get<int>() + send_fragment["lefted_size"].get<int>();
+
+  return pdu;
+}
+
+json VirtualTxSduQueue::generate_PDU(int maximum_byte, double current_time)
+{
+  this->delete_expired_fragments(current_time);
+
+  json pdu = this->update_pdu_by_fragment(
+    this->formatted_pdu(maximum_byte, current_time),
+    current_time
+  );
+
+  if (_fragment != NULL || pdu["maximum_size"].get<int>() <= pdu["size"].get<int>()) {
+    return pdu;
+  }
+
+  for (auto ptr = _priority2packets.begin(); ptr != _priority2packets.end(); ptr++) {
+    auto itr = ptr->second.begin();
+
+    while (itr != ptr->second.end()) {
+      _fragment = this->formatted_fragment(*itr, (*itr)["size"].get<int>(), 1);
+      std::cout << "update_pdu_by_fragment" << std::endl;
+      pdu = this->update_pdu_by_fragment(pdu, current_time);
+      std::cout << "end: update_pdu_by_fragment" << std::endl;
+
+      std::cout << "erase" << std::endl;
+      ptr->second.erase(itr);
+      std::cout << "end: erase" << std::endl;
+
+      if (_fragment != NULL || pdu["maximum_size"].get<int>() <= pdu["size"].get<int>()) { break; }
+    }
+
+    if (_fragment != NULL || pdu["maximum_size"].get<int>() <= pdu["size"].get<int>()) { break; }
+  }
+
+  return pdu;
+}
+
 
 
 json VirtualTxSduQueue::minimum_Bps(double current_time)
 {
+  std::cout << "delete_expired_fragments" << std::endl;
+  this->delete_expired_fragments(current_time);
+  std::cout << "end: delete_expired_fragments" << std::endl;
+
+  double total_byte = 0;
   double Bps = 0;
+  double tmp_Bps = 0;
+
+  if (_fragment != NULL) {
+    total_byte = _fragment["lefted_size"].get<double>();
+    Bps = (_fragment["expired_time"].get<double>() - current_time);
+  }
 
   for (auto ptr = _priority2packets.begin(); ptr != _priority2packets.end(); ptr++) {
-    fragments = ptr->second;
-    total_byte = 0
-    expired_time = 0
+    for (auto itr = ptr->second.begin(); itr != ptr->second.end(); itr++) {
+      total_byte += (*itr)["size"].get<double>();
+      tmp_Bps = total_byte / ((*itr)["expired_time"].get<double>() - current_time);
 
-    auto itr = fragments.begin();
-    while (itr != fragments.end()) {
-      if (current_time < (*itr)["expired_time"]) {
-        total_byte += (*itr)["size"];
-        expired_time = (*itr)["expired_time"];
-        itr++;
-
-      } else {
-        fragments.erase(itr);
-
-      }
-    }
-
-    if (current_time < expired_time) {
-      Bps += ((double) total_byte) / (expired_time - current_time) ;
+      if (Bps < tmp_Bps) { Bps = tmp_Bps; }
     }
   }
 
@@ -467,17 +572,18 @@ std::vector<std::string> get_cpm_payloads_from_carla(std::string sumo_id, std::s
 json Bps2packet_size_and_rri(double minimum_Bps)
 {
   json result;
-  result["size"] = 800;
+  // result["size"] = 800;
+  result["size"] = 300;
   result["rri"] = 0.02;
 
   std::vector<int> possible_bytes = {300, 450, 600, 800};
   std::vector<double> possible_rris = {0.1, 0.05, 0.02};
 
-  for (auto byte_ptr = possible_bytes; byte_ptr != possible_bytes.end(); byte_ptr++) {
+  for (auto byte_ptr = possible_bytes.begin(); byte_ptr != possible_bytes.end(); byte_ptr++) {
     for (auto rri_ptr = possible_rris.begin(); rri_ptr != possible_rris.end(); rri_ptr++) {
       if (minimum_Bps <= (*byte_ptr) / (*rri_ptr)) {
-        result["size"] = (*byte_ptr)
-        result["rri"] = (*rri_ptr)
+        result["size"] = (*byte_ptr);
+        result["rri"] = (*rri_ptr);
 
         return result;
 

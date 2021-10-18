@@ -92,6 +92,7 @@ void Mode4App::initialize(int stage)
         std::cout << "sumo_id: " << sumo_id << " is loaded. " << std::endl;
         appQueue = {};
 
+        // ----- App Layer -----
         _cams_ptr = new CAMs;
         _cams_send_ptr = new CAMSendHandler;
         _cams_recv_ptr = new CAMRecvHandler;
@@ -100,7 +101,13 @@ void Mode4App::initialize(int stage)
         _pos_send_ptr = new POSendHandler;
         _pos_recv_ptr = new PORecvHandler;
 
+        // ----- Virtual Access Layer Queue -----
+        _sdu_tx_ptr = new VirtualTxSduQueue;
+        _sdu_rx_ptr = new VirtualRxSduQueue;
+        _pdu_sender = new cMessage("_pdu_sender");
+        _pdu_interval = 0.020;
 
+        // ----- initialize -----
         if (!sendBeacons && !is_dynamic_simulation) {
           loadCarlaVeinsData(true);
         }
@@ -116,6 +123,7 @@ void Mode4App::initialize(int stage)
 
         double delay = TTI * intuniform(0, 1.0 / TTI, 0);
         scheduleAt((simTime() + delay).trunc(SIMTIME_US), selfSender_);
+        scheduleAt((simTime() + delay).trunc(SIMTIME_US), _pdu_sender);
     }
 }
 
@@ -149,6 +157,9 @@ void Mode4App::handleLowerMessage(cMessage* msg)
 
             } else if ((std::string) vc_pkt->getType() == "cpm") {
               string_vector2file(objects_recv_json_file_path(carlaVeinsDataDir, sumo_id), { recv_data.dump() });
+
+            } else if ((std::string) vc_pkt->getType() == "pdu") {
+              std::cout << "sumo_id: " << sumo_id << ", payload: " << recv_data["payload"] << std::endl;
             }
 
         } // ----- End My Code -----
@@ -198,14 +209,31 @@ void Mode4App::handleSelfMessage(cMessage* msg)
         } else {
             syncCarlaVeinsData(msg);
         }
-
-
         emit(sentMsg_, (long)1);
-
         scheduleAt(simTime() + period_, selfSender_);
+
+    } else if (!strcmp(msg->getName(), "_pdu_sender")) {
+      if (isSduQueueEmpty()) {
+        std::cout << "minimum_Bps" << std::endl;
+        double minimum_Bps = _sdu_tx_ptr->minimum_Bps(simTime().dbl());
+
+        if (0 < minimum_Bps) {
+          std::cout << "Bps2packet_size_and_rri" << std::endl;
+          json pdu_info = Bps2packet_size_and_rri(minimum_Bps);
+          std::cout << "generate_PDU: " << pdu_info["rri"].get<double>() << std::endl;
+          json pdu = _sdu_tx_ptr->generate_PDU(pdu_info["size"].get<int>(), simTime().dbl());
+
+          std::cout << "dump pdu" << std::endl;
+          SendPacket(pdu.dump(), "pdu", pdu["size"].get<int>(), pdu["duration"].get<int>());
+          std::cout << "end: dump pdu" << std::endl;
+        }
+      }
+
+      scheduleAt(simTime() + _pdu_interval, _pdu_sender);
+
+    } else {
+      throw cRuntimeError("Mode4App::handleMessage - Unrecognized self message");
     }
-    else
-        throw cRuntimeError("Mode4App::handleMessage - Unrecognized self message");
 }
 
 // ----- Begin My Code -----
@@ -241,9 +269,12 @@ bool Mode4App::isSduQueueEmpty()
     }
 }
 
-void Mode4App::SendPacket(std::string payload, std::string type, int payload_byte_size)
+void Mode4App::SendPacket(std::string payload, std::string type, int payload_byte_size, int duration_ms)
 {
-  try {
+  if (type == "pdu") {
+
+    try {
+      std::cout << "payload: " << payload << "\n, size: " << payload_byte_size << "\n, duration_ms: " << duration_ms << std::endl;
       veins::VeinsCarlaPacket* packet = new veins::VeinsCarlaPacket();
 
       packet->setPayload(payload.c_str());
@@ -260,15 +291,35 @@ void Mode4App::SendPacket(std::string payload, std::string type, int payload_byt
       lteControlInfo->setSrcAddr(nodeId_);
       lteControlInfo->setDirection(D2D_MULTI);
       lteControlInfo->setPriority(priority_);
-      lteControlInfo->setDuration(duration_);
+      lteControlInfo->setDuration(duration_ms);
       lteControlInfo->setCreationTime(simTime());
 
       packet->setControlInfo(lteControlInfo);
 
       Mode4BaseApp::sendLowerPackets(packet);
       // ----- End Population -----
-  } catch (...) {
-      std::cout << "appQueue error: "<< payload.c_str() << "." << std::endl;
+    } catch (...) {
+        std::cout << "appQueue error: "<< payload.c_str() << "." << std::endl;
+    }
+
+  } else if (type == "cam" || type == "cpm") {
+    json packet;
+    packet["payload"] = payload;
+    packet["type"] = type;
+    packet["size"] = payload_byte_size;
+    packet["expired_time"] = simTime().dbl() + 0.1;
+
+    if (type == "cam") {
+      _sdu_tx_ptr->enque(2, packet);
+    } else if (type == "cpm") {
+      _sdu_tx_ptr->enque(3, packet);
+    } else {
+      throw cRuntimeError("unknoen message type");
+    }
+
+    // ----
+  } else {
+    throw cRuntimeError("unknoen message type");
   }
 }
 
@@ -281,22 +332,12 @@ void Mode4App::syncCarlaVeinsData(cMessage* msg)
     loadCarlaVeinsData(false);
   }
 
-  // ----- send packets if SduQueue is empty. -----
-  // ----- This is because the Sduqueue cannot store multiple packets in default codes. -----
-  // if (!isSduQueueEmpty()) {
-  //   return;
-  // }
-
   std::vector<json> target_cams = _cams_send_ptr->filter_cams_by_etsi(_cams_ptr->data_between_time(target_start_time, target_end_time));
 
   if (!target_cams.empty()) {
     json packet = _cams_send_ptr->convert_payload_and_size(target_cams[0], size_);
 
-    // if (sumo_id == "348" || sumo_id == "397") {
-    //   std::cout << sumo_id << ": " << mobility->getCurrentPosition() << ", " << packet["payload"].get<std::string>() << std::endl;
-    // }
-    // std::cout << sumo_id << ": " << mobility->getCurrentPosition() << ", " << packet["payload"].get<std::string>() << std::endl;
-    SendPacket(packet["payload"].get<std::string>(), "cam", packet["size"].get<int>());
+    SendPacket(packet["payload"].get<std::string>(), "cam", packet["size"].get<int>(), duration_);
 
     return;
   }
@@ -307,7 +348,7 @@ void Mode4App::syncCarlaVeinsData(cMessage* msg)
     json packet = _pos_send_ptr->convert_payload_and_size(target_pos, sensor_num, max_cpm_size);
     // std::cout << packet["payload"].get<std::string>() << std::endl;
     if (0 < packet["size"].get<int>()) { // size 0 means that there are no enough size to contain perceived_objects.
-      SendPacket(packet["payload"].get<std::string>(), "cpm", packet["size"].get<int>());
+      SendPacket(packet["payload"].get<std::string>(), "cpm", packet["size"].get<int>(), duration_);
     }
 
     return;

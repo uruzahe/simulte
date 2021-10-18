@@ -72,7 +72,6 @@ public:
 
 class PORecvHandler : public POHandler
 {
-public:
 
 };
 
@@ -80,27 +79,38 @@ class POSendHandler : public POHandler
 {
 };
 
-class VirtualTxSduQueue:
+class VirtualTxSduQueue
 {
 public:
   json _fragment;
   std::vector<json> _past_fragments;
   std::unordered_map<int, json> _priority2packets;
 
+  double _delete_expired_time;
+
   VirtualTxSduQueue();
-  void enque(json packet);
-  json formatted_packet(std::string payload, std::string type, int payload_byte_size, double current_time, double duration);
-  json generate_PDU();
+
+  json add_fragment_into_pdu(json pdu, json send_fragment, double current_time);
+  void delete_expired_fragments(double current_time);
+  void enque(int priority, json packet);
+  // json formatted_packet(std::string payload, std::string type, int payload_byte_size, double current_time, double duration);
+  json formatted_fragment(json packet, int leftted_size, int status_flag);
+  json formatted_pdu(int maximum_size, double current_time);
+  json generate_PDU(int maximum_byte, double current_time);
+  json minimum_Bps(double current_time);
+  json update_fragment(json fragment, int lefted_size, int status_flag);
+  json update_pdu_by_fragment(json pdu, double current_time);
+
 };
 
-class VirtualRxSduQueue:
+class VirtualRxSduQueue
 {
 public:
   std::unordered_map<std::string, std::vector<json>> sender2fragments;
 
-  VirtualRxSduQueue();
-  std::vector<json> enque_and_decode(json fragment);
-}
+  // VirtualRxSduQueue();
+  // std::vector<json> enque_and_decode(json fragment);
+};
 
 json add_time_attribute_to_json(json data, std::string attr_name, double t);
 
@@ -133,3 +143,5 @@ void lock(const char *oldpath, const char *newpath);
 void set_cpm_payloads_for_carla(std::string sumo_id, std::string data_sync_dir, std::vector<std::string> payloads);
 
 std::vector<std::string> get_cpm_payloads_from_carla(std::string sumo_id, std::string data_sync_dir, bool read_only);
+
+json Bps2packet_size_and_rri(double minimum_Bps);

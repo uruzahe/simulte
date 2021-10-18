@@ -106,7 +106,7 @@ protected:
 
    //-----  My Code, Begin -----
    bool isSduQueueEmpty();
-   void SendPacket(std::string payload, std::string type, int payload_byte_size);
+   void SendPacket(std::string payload, std::string type, int payload_byte_size, int duration);
    virtual void loadCarlaVeinsData(bool read_only);
    virtual void syncCarlaVeinsData(cMessage* msg);
 
@@ -123,10 +123,14 @@ protected:
    std::vector<std::string> obtainedCPMs;
    std::vector<std::string> reservedCPMs;
 
-   // AppQueue is used to control SDU queue.
+   // AppQueue, VirtualTxSduQueue, and VirtualRxSduQueue are used to control SDU queue.
    // In default codes of OpenCV2X, sdu fragments are removed if new packets are generated in the application layer (See enque method of UmTxEntity.cc).
    // Therefore, we have to generate packets when SDU queue is empty.
    std::vector<std::string> appQueue;
+   VirtualTxSduQueue* _sdu_tx_ptr;
+   VirtualRxSduQueue* _sdu_rx_ptr;
+   simtime_t _pdu_interval;
+   cMessage* _pdu_sender;
 
    std::string veinsLockFile;
    std::string veinsTxtFile;
