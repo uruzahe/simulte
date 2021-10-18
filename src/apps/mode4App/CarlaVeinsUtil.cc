@@ -219,11 +219,22 @@ json VirtualTxSduQueue::formatted_packet(std::string payload, std::string type, 
   json packet;
   packet["payload"] = payload;
   packet["type"] = type;
-  packet["byte"] = payload_byte_size;
+  packet["size"] = payload_byte_size;
   packet["generatted_time"] = current_time;
   packet["expired_time"] = current_time + duration;
 
   return packet;
+}
+
+json VirtualTxSduQueue::formatted_fragment(json packet, int leftted_size, int status_flag) {
+  json fragment = packet;
+  fragment["lefted_size"] = lefted_size;
+  fragment["status_flag"] = status_flag;
+  fragment["seq"] = _past_fragments.size();
+
+  _past_fragments.push_back(fragment);
+
+  return fragment;
 }
 
 void VirtualTxSduQueue::enque(int priority, json packet)
@@ -231,8 +242,40 @@ void VirtualTxSduQueue::enque(int priority, json packet)
   _priority2packets[priority].push_back(packet);
 }
 
-json VirtualTxSduQueue::generate_PDU(int maximum_byte)
+json VirtualTxSduQueue::generate_PDU(int maximum_byte, double current_time)
 {
+  json pdu;
+  pdu["size"] = 0;
+  pdu["type"] = "pdu";
+  pdu["sdus"] = {};
+
+  int lefted_size = maximum_byte;
+
+
+  if (_fragment != Null && _fragment["leftted_size"] <= lefted_size) {
+    pdu["sdus"].push_back(_fragment);
+    _fragment = Null;
+
+  } else {
+    json send_fragment = _fragment;
+    send_fragment["size"] = lefted_size;
+    send_fragment[]
+  }
+
+
+  for (auto ptr = _priority2packets.begin(); ptr != _priority2packets.end(); ptr++) {
+    auto itr = fragments.begin();
+
+    while (itr != fragments.end()) {
+      if ((*itr)["expired_time"] < current_time) {
+        fragments.erase(itr);
+        continue;
+      }
+    }
+  }
+
+
+
 
 
 }
@@ -242,7 +285,7 @@ json VirtualTxSduQueue::minimum_Bps(double current_time)
 {
   double Bps = 0;
 
-  for (auto ptr = _priority2packets.begin(); ptr != _priority2packets.end(); ptr++){
+  for (auto ptr = _priority2packets.begin(); ptr != _priority2packets.end(); ptr++) {
     fragments = ptr->second;
     total_byte = 0
     expired_time = 0
@@ -250,7 +293,7 @@ json VirtualTxSduQueue::minimum_Bps(double current_time)
     auto itr = fragments.begin();
     while (itr != fragments.end()) {
       if (current_time < (*itr)["expired_time"]) {
-        total_byte += (*itr)["byte"];
+        total_byte += (*itr)["size"];
         expired_time = (*itr)["expired_time"];
         itr++;
 
