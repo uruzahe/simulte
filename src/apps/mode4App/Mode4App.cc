@@ -159,7 +159,25 @@ void Mode4App::handleLowerMessage(cMessage* msg)
               string_vector2file(objects_recv_json_file_path(carlaVeinsDataDir, sumo_id), { recv_data.dump() });
 
             } else if ((std::string) vc_pkt->getType() == "pdu") {
-              std::cout << "sumo_id: " << sumo_id << ", payload: " << recv_data["payload"] << std::endl;
+              // std::cout << "sumo_id: " << sumo_id << ", payload: " << recv_data["payload"] << std::endl;
+
+              json pdu = json::parse((std::string) vc_pkt->getPayload());
+              std::vector<json> sdus = pdu["sdus"].get<std::vector<json>>();
+              for (auto itr = sdus.begin(); itr != sdus.end() itr++) {
+                switch ((*itr)["status_flag"].get<int>()) {
+                  case  0:
+                    break;
+                  case  1:
+                    break;
+                  case 10:
+                    break;
+                  case 11:
+                    break;
+                  default:
+                    throw cRuntimeError("unknoen status flag");
+                    break;
+                }
+              }
             }
 
         } // ----- End My Code -----
