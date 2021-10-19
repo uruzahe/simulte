@@ -127,6 +127,50 @@ void Mode4App::initialize(int stage)
     }
 }
 
+void Mode4App::SdusHandler(std::vector<json> sdus, double send_time, double recv_time)
+{
+  int status_flag = 0;
+
+  for (auto itr = sdus.begin(); itr != sdus.end() itr++) {
+    status_flag = (*itr)["status_flag"].get<int>()
+
+    if (status_flag == 11) {
+      myHandleLowerMessage(sdu["payload"].get<std::string>(), sdu["type"].get<std::string>(), send_time, recv_time);
+
+    } else {
+      json packet = _sdu_rx_ptr->enque_and_decode((*itr));
+
+      if (packet != NULL) {
+        myHandleLowerMessage(packet["payload"].get<std::string>(), packet["type"].get<std::string>(), send_time, recv_time);
+      }
+    }
+  }
+}
+
+// void Mode4App::SduHandler(json sdu)
+// {
+//
+// }
+
+void Mode4App::myHandleLowerMessage(std::string payload, std::string type, double send_time, double recv_time)
+{
+  json recv_data;
+  recv_data["payload"] = payload;
+  recv_data["send_time"] = send_time;
+  recv_data["recv_time"] = recv_time;
+
+  if ((std::string) vc_pkt->getType() == "cam") {
+    // json payload = json::parse(vc_pkt->getPayload());
+    string_vector2file(cams_recv_json_file_path(carlaVeinsDataDir, sumo_id), { recv_data.dump() });
+
+  } else if ((std::string) vc_pkt->getType() == "cpm") {
+    string_vector2file(objects_recv_json_file_path(carlaVeinsDataDir, sumo_id), { recv_data.dump() });
+
+  } else if ((std::string) vc_pkt->getType() == "pdu") {
+    SdusHandler(json::parse(payload)["sdus"].get<std::vector<json>>(), send_time, recv_time);
+  }
+}
+
 void Mode4App::handleLowerMessage(cMessage* msg)
 {
     if (msg->isName("CBR")) {
@@ -138,63 +182,18 @@ void Mode4App::handleLowerMessage(cMessage* msg)
     } else {
         // ----- Begin My Code -----
         if (veins::VeinsCarlaPacket* vc_pkt = dynamic_cast<veins::VeinsCarlaPacket*>(msg)) {
-            receivedCPMs++;
-
-            // emit statistics
-            simtime_t delay = simTime() - vc_pkt->getTimestamp();
-            emit(delay_, delay);
-            emit(rcvdMsg_, (long)1);
-            EV << "Mode4App::handleMessage - CPM Packet received: SeqNo[" << vc_pkt->getSno() << "] Delay[" << delay << "]" << endl;
-
-            json recv_data;
-            recv_data["payload"] = (std::string) vc_pkt->getPayload();
-            recv_data["send_time"] = vc_pkt->getTimestamp().dbl();
-            recv_data["recv_time"] = simTime().dbl();
-
-            if ((std::string) vc_pkt->getType() == "cam") {
-              json payload = json::parse(vc_pkt->getPayload());
-              string_vector2file(cams_recv_json_file_path(carlaVeinsDataDir, sumo_id), { recv_data.dump() });
-
-            } else if ((std::string) vc_pkt->getType() == "cpm") {
-              string_vector2file(objects_recv_json_file_path(carlaVeinsDataDir, sumo_id), { recv_data.dump() });
-
-            } else if ((std::string) vc_pkt->getType() == "pdu") {
-              // std::cout << "sumo_id: " << sumo_id << ", payload: " << recv_data["payload"] << std::endl;
-
-              json pdu = json::parse((std::string) vc_pkt->getPayload());
-              std::vector<json> sdus = pdu["sdus"].get<std::vector<json>>();
-              for (auto itr = sdus.begin(); itr != sdus.end() itr++) {
-                switch ((*itr)["status_flag"].get<int>()) {
-                  case  0:
-                    break;
-                  case  1:
-                    break;
-                  case 10:
-                    break;
-                  case 11:
-                    break;
-                  default:
-                    throw cRuntimeError("unknoen status flag");
-                    break;
-                }
-              }
-            }
+          myHandleLowerMessage(vc_pkt->getPayload(), vc_pkt->getType(), vc_pkt->getTimestamp(), simTime().dbl());
 
         } // ----- End My Code -----
         else {
             AlertPacket* pkt = check_and_cast<AlertPacket*>(msg);
-
-            if (pkt == 0) {
-                throw cRuntimeError("Mode4App::handleMessage - FATAL! Error when casting to AlertPacket");
-            }
-
-            // emit statistics
-            simtime_t delay = simTime() - pkt->getTimestamp();
-            emit(delay_, delay);
-            emit(rcvdMsg_, (long)1);
-
-            EV << "Mode4App::handleMessage - Packet received: SeqNo[" << pkt->getSno() << "] Delay[" << delay << "]" << endl;
+            if (pkt == 0) { throw cRuntimeError("Mode4App::handleMessage - FATAL! Error when casting to AlertPacket"); }
         }
+
+        simtime_t delay = simTime() - vc_pkt->getTimestamp();
+        emit(delay_, delay);
+        emit(rcvdMsg_, (long)1);
+        EV << "Mode4App::handleMessage - CPM Packet received: SeqNo[" << vc_pkt->getSno() << "] Delay[" << delay << "]" << endl;
 
         delete msg;
     }
@@ -232,18 +231,18 @@ void Mode4App::handleSelfMessage(cMessage* msg)
 
     } else if (!strcmp(msg->getName(), "_pdu_sender")) {
       if (isSduQueueEmpty()) {
-        std::cout << "minimum_Bps" << std::endl;
+        // std::cout << "minimum_Bps" << std::endl;
         double minimum_Bps = _sdu_tx_ptr->minimum_Bps(simTime().dbl());
 
         if (0 < minimum_Bps) {
-          std::cout << "Bps2packet_size_and_rri" << std::endl;
+          // std::cout << "Bps2packet_size_and_rri" << std::endl;
           json pdu_info = Bps2packet_size_and_rri(minimum_Bps);
-          std::cout << "generate_PDU: " << pdu_info["rri"].get<double>() << std::endl;
+          // std::cout << "generate_PDU: " << pdu_info["rri"].get<double>() << std::endl;
           json pdu = _sdu_tx_ptr->generate_PDU(pdu_info["size"].get<int>(), simTime().dbl());
 
-          std::cout << "dump pdu" << std::endl;
+          // std::cout << "dump pdu" << std::endl;
           SendPacket(pdu.dump(), "pdu", pdu["size"].get<int>(), pdu["duration"].get<int>());
-          std::cout << "end: dump pdu" << std::endl;
+          // std::cout << "end: dump pdu" << std::endl;
         }
       }
 
@@ -325,6 +324,7 @@ void Mode4App::SendPacket(std::string payload, std::string type, int payload_byt
     packet["payload"] = payload;
     packet["type"] = type;
     packet["size"] = payload_byte_size;
+    packet["sender_id"] = sumo_id;
     packet["expired_time"] = simTime().dbl() + 0.1;
 
     if (type == "cam") {

@@ -86,6 +86,7 @@ public:
   std::vector<json> _past_fragments;
   std::unordered_map<int, json> _priority2packets;
 
+  int _packet_id;
   double _delete_expired_time;
 
   VirtualTxSduQueue();
@@ -106,10 +107,9 @@ public:
 class VirtualRxSduQueue
 {
 public:
-  std::unordered_map<std::string, std::vector<json>> sender2fragments;
+  std::unordered_map<std::string, std::vector<json>> _sender2packet_id2sdus;
 
-  // VirtualRxSduQueue();
-  // std::vector<json> enque_and_decode(json fragment);
+  std::vector<json> enque_and_decode(json fragment);
 };
 
 json add_time_attribute_to_json(json data, std::string attr_name, double t);

@@ -207,6 +207,7 @@ VirtualTxSduQueue::VirtualTxSduQueue()
   _past_fragments = {};
   _delete_expired_time = 0;
   _fragment = NULL;
+  _packet_id = 0;
   // As the priority index is lower, more the priority becomes high.
   // The index 0 indicates the most important packet.
 
@@ -290,8 +291,11 @@ json VirtualTxSduQueue::formatted_pdu(int maximum_size, double current_time) {
 
 void VirtualTxSduQueue::enque(int priority, json packet)
 {
+  packet["packet_id"] = _packet_id;
   _priority2packets[priority].push_back(packet);
+
   _delete_expired_time = 0;
+  _packet_id++;
 }
 
 json VirtualTxSduQueue::update_pdu_by_fragment(json pdu, double current_time) {
@@ -417,6 +421,13 @@ json VirtualTxSduQueue::minimum_Bps(double current_time)
 }
 // ----- End: VirtualTxSduQueue -----
 
+
+// ----- Begin: VirtualRxSduQueue -----
+std::vector<json> VirtualRxSduQueue::enque_and_decode(json fragment)
+{
+  _sender2packet_id2sdus[]
+}
+// ----- End: VirtualRxSduQueue -----
 
 // ----- Begin: function -----
 std::string cams_json_file_path(std::string data_sync_dir, std::string sumo_id)
