@@ -67,11 +67,11 @@ class LteControlInfo {
     //# Connection Information
 
     uint16 lcid;                                        // Logical Connection Identifier
-    int32 multicastGroupId = -1;                        // Identifier for a multicast group (it is in range [0:[2^28)-1] ) 
+    int32 multicastGroupId = -1;                        // Identifier for a multicast group (it is in range [0:[2^28)-1] )
                                                         // For unicast communications, this field is -1
 
     unsigned int sequenceNumber;                        // packet sequence number
-    
+
 }
 
 //
@@ -101,6 +101,11 @@ class FlowControlInfoNonIp extends LteControlInfo {
     long srcAddr;
     long dstAddr;
     simtime_t creationTime;
+
+    // ----- Begin My Code -----
+    int myChannelNum;
+    double myRri;
+    // ----- End My Code -----
 }
 //
 // @class UserControlInfo
@@ -146,5 +151,3 @@ class UserControlInfo extends LteControlInfo {
     //# RemoteSet ru;                                // Remote Antenna Set
     //# RbMap grantedBlocks;                        // Blocks allocated per Remote, per Band.
 }
-
-

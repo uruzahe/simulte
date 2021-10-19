@@ -114,6 +114,12 @@ protected:
    simsignal_t rrcSelected;
    simsignal_t retainGrant;
 
+   // ----- Begin My Code -----
+   int _my_channel_num;
+   double _my_rri;
+   std::map<double, double> _time2cr;
+   // ----- End My Code -----
+
 //   // Lte AMC module
 //   LteAmc *amc_;
 

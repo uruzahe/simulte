@@ -279,10 +279,10 @@ json VirtualTxSduQueue::update_fragment(json fragment, int lefted_size, int stat
 
 json VirtualTxSduQueue::formatted_pdu(int maximum_size, double current_time) {
   json pdu;
-  pdu["maximum_size"] = maximum_size;
+  pdu["maximum_size"] = maximum_size - MY_PDCP_HEADER_BYTE - MY_RLC_UM_HEADER_BYTE;
   pdu["timestamp"] = current_time;
   pdu["duration"] = 100;
-  pdu["size"] = 0;
+  pdu["size"] = MY_MAC_HEADER_BYTE;
   pdu["type"] = "pdu";
   pdu["sdus"] = {};
 
@@ -351,7 +351,7 @@ json VirtualTxSduQueue::add_fragment_into_pdu(json pdu, json send_fragment, doub
   sdus.push_back(send_fragment);
   pdu["sdus"] = sdus;
 
-  pdu["size"] = pdu["size"].get<int>() + send_fragment["lefted_size"].get<int>();
+  pdu["size"] = pdu["size"].get<int>() + MY_PDCP_HEADER_BYTE + MY_RLC_UM_HEADER_BYTE + send_fragment["lefted_size"].get<int>();
 
   return pdu;
 }
@@ -388,6 +388,9 @@ json VirtualTxSduQueue::generate_PDU(int maximum_byte, double current_time)
     if (_fragment != NULL || pdu["maximum_size"].get<int>() <= pdu["size"].get<int>()) { break; }
   }
 
+  // ----- substruct (MAC_HEADER + RLC_HEADER_UM + PDCP_HEADER_UM) because these value will be added in low layer in OpenCV2X. -----
+  pdu["size"] = pdu["size"].get<int>() - (MAC_HEADER + RLC_HEADER_UM + PDCP_HEADER_UM);
+
   return pdu;
 }
 
@@ -423,11 +426,42 @@ json VirtualTxSduQueue::minimum_Bps(double current_time)
 
 
 // ----- Begin: VirtualRxSduQueue -----
-std::vector<json> VirtualRxSduQueue::enque_and_decode(json fragment)
+json VirtualRxSduQueue::enque_and_decode(json sdu)
 {
-  _sender2packet_id2sdus[]
+  json result = NULL;
+
+  std::string sender_id = sdu["sender_id"].get<std::string>();
+  std::string packet_id = sdu["packet_id"].get<std::string>();
+
+  _sender2packet_id2sdus[sender_id][packet_id].push_back(sdu);
+
+  // ----- decode sdus -----
+  int packet_size = sdu["size"].get<int>();
+  int sdu_total_size = 0;
+  for (auto sdu_ptr = _sender2packet_id2sdus[sender_id][packet_id].begin(); sdu_ptr != _sender2packet_id2sdus[sender_id][packet_id].end(); sdu_ptr++) {
+    sdu_total_size += (*sdu_ptr)["lefted_size"].get<int>();
+
+    if (sdu_total_size < packet_size) {
+      continue;
+
+    } else if (sdu_total_size == packet_size) {
+      result = (*sdu_ptr);
+      break;
+
+    } else {
+      assert(sdu_total_size <= packet_size);
+
+    }
+  }
+
+  if (result != NULL) {
+    _sender2packet_id2sdus[sender_id][packet_id].clear();
+  }
+
+  return result;
 }
 // ----- End: VirtualRxSduQueue -----
+
 
 // ----- Begin: function -----
 std::string cams_json_file_path(std::string data_sync_dir, std::string sumo_id)
@@ -443,6 +477,7 @@ std::string cams_recv_json_file_path(std::string data_sync_dir, std::string sumo
 std::string cpms_json_file_path(std::string data_sync_dir, std::string sumo_id)
 {
   return data_sync_dir + sumo_id + "_cpms.json";
+
 }
 
 std::string objects_json_file_path(std::string data_sync_dir, std::string sumo_id)
@@ -493,6 +528,7 @@ std::vector<std::string> file2string_vector(std::string file_path, bool read_onl
           continue;
         }
       }
+
   }
   ifs.close();
 

@@ -7,10 +7,17 @@
 #include <fstream>
 #include <vector>
 #include <cmath>
-
 #include <nlohmann/json.hpp>
 
+#include "common/LteCommon.h"
+
 using json = nlohmann::json;
+
+// Cite from: Tuo, X., Wang, F., Zhao, Z., Zhang, Y., & Wang, D. (2017). Packet segmentation for contention-based transmission in 5G. 2017 32nd General Assembly and Scientific Symposium of the International Union of Radio Science, URSI GASS 2017, 2017-Janua(August), 1–4. https://doi.org/10.23919/URSIGASS.2017.8104993
+#define MY_MAC_HEADER_BYTE 2
+#define MY_RLC_UM_HEADER_BYTE 1
+#define MY_PDCP_HEADER_BYTE 1 // PDCP_HEADER is added in OpenCV2X default codes, therefore we don't use MY_PDCP_HEADER_BYTE.
+
 
 class JsonDataStore
 {
@@ -107,9 +114,9 @@ public:
 class VirtualRxSduQueue
 {
 public:
-  std::unordered_map<std::string, std::vector<json>> _sender2packet_id2sdus;
+  std::unordered_map<std::string, std::unordered_map<std::string, std::vector<json>>> _sender2packet_id2sdus;
 
-  std::vector<json> enque_and_decode(json fragment);
+  json enque_and_decode(json fragment);
 };
 
 json add_time_attribute_to_json(json data, std::string attr_name, double t);

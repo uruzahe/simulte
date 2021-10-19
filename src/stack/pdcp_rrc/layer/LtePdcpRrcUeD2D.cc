@@ -178,6 +178,10 @@ void LtePdcpRrcUeD2D::fromDataIn(cPacket *pkt)
     EV << "LtePdcpRrcUeD2D : Assigned Lcid: " << mylcid << "\n";
     EV << "LtePdcpRrcUeD2D : Assigned Node ID: " << nodeId_ << "\n";
 
+    // ----- Begin My Code -----
+    EV << "LtePdcp : Original Packet size " << pkt->getByteLength() << " Bytes\n";
+    // ----- End My Code -----
+
     // PDCP Packet creation
     LtePdcpPdu* pdcpPkt = new LtePdcpPdu("LtePdcpPdu");
     pdcpPkt->setByteLength(lteInfo->getRlcType() == UM ? PDCP_HEADER_UM : PDCP_HEADER_AM);
@@ -252,4 +256,3 @@ void LtePdcpRrcUeD2D::pdcpHandleD2DModeSwitch(MacNodeId peerId, LteD2DMode newMo
 
     // add here specific behavior for handling mode switch at the PDCP layer
 }
-

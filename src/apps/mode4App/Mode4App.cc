@@ -131,11 +131,11 @@ void Mode4App::SdusHandler(std::vector<json> sdus, double send_time, double recv
 {
   int status_flag = 0;
 
-  for (auto itr = sdus.begin(); itr != sdus.end() itr++) {
-    status_flag = (*itr)["status_flag"].get<int>()
+  for (auto itr = sdus.begin(); itr != sdus.end(); itr++) {
+    status_flag = (*itr)["status_flag"].get<int>();
 
     if (status_flag == 11) {
-      myHandleLowerMessage(sdu["payload"].get<std::string>(), sdu["type"].get<std::string>(), send_time, recv_time);
+      myHandleLowerMessage((*itr)["payload"].get<std::string>(), (*itr)["type"].get<std::string>(), send_time, recv_time);
 
     } else {
       json packet = _sdu_rx_ptr->enque_and_decode((*itr));
@@ -159,15 +159,18 @@ void Mode4App::myHandleLowerMessage(std::string payload, std::string type, doubl
   recv_data["send_time"] = send_time;
   recv_data["recv_time"] = recv_time;
 
-  if ((std::string) vc_pkt->getType() == "cam") {
-    // json payload = json::parse(vc_pkt->getPayload());
+  if (type == "cam") {
     string_vector2file(cams_recv_json_file_path(carlaVeinsDataDir, sumo_id), { recv_data.dump() });
 
-  } else if ((std::string) vc_pkt->getType() == "cpm") {
+  } else if (type == "cpm") {
     string_vector2file(objects_recv_json_file_path(carlaVeinsDataDir, sumo_id), { recv_data.dump() });
 
-  } else if ((std::string) vc_pkt->getType() == "pdu") {
+  } else if (type == "pdu") {
     SdusHandler(json::parse(payload)["sdus"].get<std::vector<json>>(), send_time, recv_time);
+
+  } else {
+    assert(type == "cam" || type == "cpm" || type == "pdu");
+
   }
 }
 
@@ -182,7 +185,7 @@ void Mode4App::handleLowerMessage(cMessage* msg)
     } else {
         // ----- Begin My Code -----
         if (veins::VeinsCarlaPacket* vc_pkt = dynamic_cast<veins::VeinsCarlaPacket*>(msg)) {
-          myHandleLowerMessage(vc_pkt->getPayload(), vc_pkt->getType(), vc_pkt->getTimestamp(), simTime().dbl());
+          myHandleLowerMessage((std::string) vc_pkt->getPayload(), (std::string) vc_pkt->getType(), vc_pkt->getTimestamp().dbl(), simTime().dbl());
 
         } // ----- End My Code -----
         else {
@@ -190,10 +193,10 @@ void Mode4App::handleLowerMessage(cMessage* msg)
             if (pkt == 0) { throw cRuntimeError("Mode4App::handleMessage - FATAL! Error when casting to AlertPacket"); }
         }
 
-        simtime_t delay = simTime() - vc_pkt->getTimestamp();
+        simtime_t delay = simTime() - msg->getTimestamp();
         emit(delay_, delay);
         emit(rcvdMsg_, (long)1);
-        EV << "Mode4App::handleMessage - CPM Packet received: SeqNo[" << vc_pkt->getSno() << "] Delay[" << delay << "]" << endl;
+        // EV << "Mode4App::handleMessage - Packet received: SeqNo[" << msg->getSno() << "] Delay[" << delay << "]" << endl;
 
         delete msg;
     }
@@ -332,12 +335,12 @@ void Mode4App::SendPacket(std::string payload, std::string type, int payload_byt
     } else if (type == "cpm") {
       _sdu_tx_ptr->enque(3, packet);
     } else {
-      throw cRuntimeError("unknoen message type");
+      assert(type == "cam" || type == "cpm");
     }
 
     // ----
   } else {
-    throw cRuntimeError("unknoen message type");
+    assert(type == "cam" || type == "cpm" || type == "pdu");
   }
 }
 
@@ -357,7 +360,7 @@ void Mode4App::syncCarlaVeinsData(cMessage* msg)
 
     SendPacket(packet["payload"].get<std::string>(), "cam", packet["size"].get<int>(), duration_);
 
-    return;
+    // return;
   }
 
   std::vector<json> target_pos = _pos_send_ptr->filter_pos_by_etsi(_pos_ptr->data_between_time(target_start_time, target_end_time));

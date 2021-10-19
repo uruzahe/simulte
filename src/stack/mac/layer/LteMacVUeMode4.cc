@@ -79,6 +79,13 @@ void LteMacVUeMode4::initialize(int stage)
 
         currentCbrIndex_ = defaultCbrIndex_;
 
+        // ----- Begin My Code -----
+        _my_channel_num = 1;
+        _my_rri = 1;
+        _past_channel_num = {};
+        _past_my_rri = {};
+        // ----- End My Code -----
+
         // Register the necessary signals for this simulation
 
         grantStartTime          = registerSignal("grantStartTime");
@@ -642,6 +649,40 @@ void LteMacVUeMode4::handleMessage(cMessage *msg)
             duration = duration - elapsedTime;
             double dur = duration.dbl();
             remainingTime_ = lteInfo->getDuration() - dur;
+
+            // ----- Begin My Code -----
+            bool is_required_more_cr = false;
+
+            while (0 < _time2cr.size() && 1.0 < simTime().dbl() - _time2cr.begin()->first) {
+              _time2cr.erase(_time2cr.begin());
+            }
+
+            if (schedulingGrant_ != NULL) {
+              is_required_more_cr = (_my_channel_num / _my_rri) < (lteInfo->getMyChannelNum() / lteInfo->getMyRri());
+            } else {
+              
+            }
+
+
+
+
+            if (schedulingGrant_ == NULL || (_my))
+            _my_channel_num = lteInfo->getMyChannelNum();
+            _my_rri = lteInfo->getMyRri();
+
+            double required_cr = _my_channel_num / _my_rri;
+            bool is_required_more_cr = false;
+
+
+            if (schedulingGrant_ == NULL) {
+
+            } else {
+
+            }
+
+            if (0 < _time2cr.size() && )
+            _time2cr.push_back(required_cr);
+            // ----- End My Code -----
 
             if (schedulingGrant_ == NULL)
             {
