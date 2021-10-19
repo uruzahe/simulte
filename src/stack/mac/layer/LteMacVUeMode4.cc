@@ -651,18 +651,38 @@ void LteMacVUeMode4::handleMessage(cMessage *msg)
             remainingTime_ = lteInfo->getDuration() - dur;
 
             // ----- Begin My Code -----
+            // ----- remove old cr -----
+            auto itr = _time2ch_rri.begin();
+            while (itr != _time2ch_rri.end()) {
+              if (1.0 < simTime().dbl() - itr->first) { _time2ch_rri.erase(itr); }
+              else { break; }
+            }
+
             bool is_required_more_cr = false;
-
-            while (0 < _time2cr.size() && 1.0 < simTime().dbl() - _time2cr.begin()->first) {
-              _time2cr.erase(_time2cr.begin());
-            }
-
+            double required_cr = (lteInfo->getMyChannelNum() / lteInfo->getMyRri())
+            int possible_ch = 0;
+            double possible_rri = 1.0
+            
             if (schedulingGrant_ != NULL) {
-              is_required_more_cr = (_my_channel_num / _my_rri) < (lteInfo->getMyChannelNum() / lteInfo->getMyRri());
+              is_required_more_cr = (_my_channel_num / _my_rri) < required_cr;
+
             } else {
-              
+              int tmp_ch =
+              double max_cr = 0;
+              double tmp_cr = 0;
+              for (auto itr = _time2ch_rri.begin(); itr != _time2ch_rri.end(); itr++) {
+                tmp_cr = itr->second["ch"].get<int>() / itr->second["rri"].get<double>();
+                if (max_cr < tmp_cr) { max_cr = tmp_cr; }
+              }
+              is_required_more_cr = max_cr < required_cr;
             }
 
+            // ----- update resource -----
+            if (is_required_more_cr) {
+              _my_channel_num = lteInfo->getMyChannelNum();
+              _my_rri = lteInfo->getMyRri();
+              _time2cr[simTime().dbl()] = required_cr;
+            }
 
 
 

@@ -23,6 +23,10 @@
 #include "corenetwork/deployer/LteDeployer.h"
 #include <unordered_map>
 
+// ----- Begin My Code -----
+#include <nlohmann/json.hpp>
+using json = nlohmann::json;
+// ----- End My Code -----
 //class LteMode4SchedulingGrant;
 
 class LteMacVUeMode4: public LteMacUeRealisticD2D {
@@ -117,7 +121,7 @@ protected:
    // ----- Begin My Code -----
    int _my_channel_num;
    double _my_rri;
-   std::map<double, double> _time2cr;
+   std::map<double, json> _time2ch_rri;
    // ----- End My Code -----
 
 //   // Lte AMC module
