@@ -47,7 +47,7 @@ void LtePhyEnb::initialize(int stage)
         // get local id
         nodeId_ = getAncestorPar("macNodeId");
         EV << "Local MacNodeId: " << nodeId_ << endl;
-        std::cout << "Local MacNodeId: " << nodeId_ << endl;
+        // std::cout << "Local MacNodeId: " << nodeId_ << endl;
 
         nodeType_ = ENODEB;
         deployer_ = getDeployer(nodeId_);

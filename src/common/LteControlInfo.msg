@@ -103,8 +103,8 @@ class FlowControlInfoNonIp extends LteControlInfo {
     simtime_t creationTime;
 
     // ----- Begin My Code -----
-    int myChannelNum;
-    double myRri;
+    int myChannelNum = 1;
+    double myRri = 1.0;
     // ----- End My Code -----
 }
 //

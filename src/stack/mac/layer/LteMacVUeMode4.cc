@@ -80,10 +80,9 @@ void LteMacVUeMode4::initialize(int stage)
         currentCbrIndex_ = defaultCbrIndex_;
 
         // ----- Begin My Code -----
-        _my_channel_num = 1;
+        _my_channel_num = 2;
         _my_rri = 1;
-        _past_channel_num = {};
-        _past_my_rri = {};
+        _time2ch_rri = {};
         // ----- End My Code -----
 
         // Register the necessary signals for this simulation
@@ -651,60 +650,48 @@ void LteMacVUeMode4::handleMessage(cMessage *msg)
             remainingTime_ = lteInfo->getDuration() - dur;
 
             // ----- Begin My Code -----
+            bool is_required_more_cr = false;
             // ----- remove old cr -----
+            // std::cout << "----- remove old cr -----" << std::endl;
             auto itr = _time2ch_rri.begin();
             while (itr != _time2ch_rri.end()) {
-              if (1.0 < simTime().dbl() - itr->first) { _time2ch_rri.erase(itr); }
-              else { break; }
-            }
-
-            bool is_required_more_cr = false;
-            double required_cr = (lteInfo->getMyChannelNum() / lteInfo->getMyRri())
-            int possible_ch = 0;
-            double possible_rri = 1.0
-            
-            if (schedulingGrant_ != NULL) {
-              is_required_more_cr = (_my_channel_num / _my_rri) < required_cr;
-
-            } else {
-              int tmp_ch =
-              double max_cr = 0;
-              double tmp_cr = 0;
-              for (auto itr = _time2ch_rri.begin(); itr != _time2ch_rri.end(); itr++) {
-                tmp_cr = itr->second["ch"].get<int>() / itr->second["rri"].get<double>();
-                if (max_cr < tmp_cr) { max_cr = tmp_cr; }
+              // std::cout << __func__ << ": now: " << simTime().dbl() << ", first: " << itr->first << ", size: " << _time2ch_rri.size() << std::endl;
+              if (1.0 < simTime().dbl() - itr->first) {
+                itr = _time2ch_rri.erase(itr);
+              } else {
+                break;
               }
-              is_required_more_cr = max_cr < required_cr;
+            }
+            // std::cout << "----- push back -----" << std::endl;
+            _time2ch_rri[simTime().dbl()] = (json){
+              {"ch", lteInfo->getMyChannelNum()},
+              {"rri", lteInfo->getMyRri()}
+            };
+
+            // std::cout << "----- find max rri -----" << std::endl;
+            int max_ch = 1;
+            double max_rri = 1.0;
+            for (auto itr = _time2ch_rri.begin(); itr != _time2ch_rri.end(); itr++) {
+              if (max_ch / max_rri < itr->second["ch"].get<int>() / itr->second["rri"].get<double>()) {
+                max_ch = itr->second["ch"].get<int>();
+                max_rri = itr->second["rri"].get<double>();
+              }
             }
 
-            // ----- update resource -----
-            if (is_required_more_cr) {
-              _my_channel_num = lteInfo->getMyChannelNum();
-              _my_rri = lteInfo->getMyRri();
-              _time2cr[simTime().dbl()] = required_cr;
+            // std::cout << "----- set max rri -----" << std::endl;
+            is_required_more_cr = (_my_channel_num / _my_rri < max_ch / max_rri);
+            if (schedulingGrant_ == NULL || is_required_more_cr) {
+              _my_channel_num = max_ch;
+              _my_rri = max_rri;
+
+              assert(1 <= _my_channel_num && _my_channel_num <= 5);
+              assert(validResourceReservationIntervals_.find(_my_rri) != validResourceReservationIntervals_.end());
             }
 
-
-
-            if (schedulingGrant_ == NULL || (_my))
-            _my_channel_num = lteInfo->getMyChannelNum();
-            _my_rri = lteInfo->getMyRri();
-
-            double required_cr = _my_channel_num / _my_rri;
-            bool is_required_more_cr = false;
-
-
-            if (schedulingGrant_ == NULL) {
-
-            } else {
-
-            }
-
-            if (0 < _time2cr.size() && )
-            _time2cr.push_back(required_cr);
+            // std::cout << "----- end: set max rri -----" << std::endl;
             // ----- End My Code -----
 
-            if (schedulingGrant_ == NULL)
+            if (schedulingGrant_ == NULL || is_required_more_cr)
             {
                 macGenerateSchedulingGrant(remainingTime_, lteInfo->getPriority());
             }
@@ -1009,7 +996,7 @@ void LteMacVUeMode4::macHandleSps(cPacket* pkt)
 
     std::tuple<double, int, int> selectedCR = CSRs[index];
     // Gives us the time at which we will send the subframe.
-    // std::cout <<
+    // // std::cout <<
     //   "DEBUG: slot: " << std::get<1>(selectedCR) <<
     //   ", NOW: "  << simTime() <<
     //   // ", SLOT_2_MS: " << SLOT_2_MS <<
@@ -1118,6 +1105,10 @@ void LteMacVUeMode4::macGenerateSchedulingGrant(double maximumLatency, int prior
 
     LteMode4SchedulingGrant* mode4Grant = new LteMode4SchedulingGrant("LteMode4Grant");
 
+    // ----- Begin My Code -----
+    resourceReservationInterval_ = _my_rri;
+    // ----- End My Code -----
+
     // Priority is the most difficult part to figure out, for the moment I will assign it as a fixed value
     mode4Grant -> setSpsPriority(priority);
     mode4Grant -> setPeriod(resourceReservationInterval_ * 100 * MS_2_SLOT);
@@ -1167,8 +1158,14 @@ void LteMacVUeMode4::macGenerateSchedulingGrant(double maximumLatency, int prior
             maxSubchannelNumberPSSCH = min(maxSubchannelNumberPSSCH_, cbrMaxSubchannelNum);
         }
     }
+
+    // ----- Begin Modification -----
+    // ----- Original -----
     // Selecting the number of subchannel at random as there is no explanation as to the logic behind selecting the resources in the range unlike when selecting MCS.
-    int numSubchannels = intuniform(minSubchannelNumberPSSCH, maxSubchannelNumberPSSCH, 2);
+    // int numSubchannels = intuniform(minSubchannelNumberPSSCH, maxSubchannelNumberPSSCH, 2);
+    // ----- My Code -----
+    int numSubchannels = _my_channel_num;
+    // ----- End Modification -----
 
     mode4Grant -> setNumberSubchannels(numSubchannels);
 
@@ -1276,10 +1273,10 @@ void LteMacVUeMode4::flushHarqBuffers()
                         const unsigned int* tbsVect = itbs2tbs(mod, SINGLE_ANTENNA_PORT0, 1, mcs - i);
                         mcsCapacity = tbsVect[totalGrantedBlocks-1];
 
-                        // std::cout << "pduLength: " << pduLength << ", mcsCapacity: " << mcsCapacity << ", mcs" << mcs << std::endl;
+                        // // std::cout << "pduLength: " << pduLength << ", mcsCapacity: " << mcsCapacity << ", mcs" << mcs << std::endl;
                         if (mcsCapacity > pduLength)
                         {
-                            // std::cout << "foundValidMCS: True" << std::endl;
+                            // // std::cout << "foundValidMCS: True" << std::endl;
                             foundValidMCS = true;
                             mode4Grant->setMcs(mcs);
                             mode4Grant->setGrantedCwBytes(cw, mcsCapacity);

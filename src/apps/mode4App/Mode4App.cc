@@ -89,7 +89,7 @@ void Mode4App::initialize(int stage)
         carlaTimeStep = par("carlaTimeStep").doubleValue();
 
         sumo_id = mobility->external_id;
-        std::cout << "sumo_id: " << sumo_id << " is loaded. " << std::endl;
+        // std::cout << "sumo_id: " << sumo_id << " is loaded. " << std::endl;
         appQueue = {};
 
         // ----- App Layer -----
@@ -129,6 +129,8 @@ void Mode4App::initialize(int stage)
 
 void Mode4App::SdusHandler(std::vector<json> sdus, double send_time, double recv_time)
 {
+  // std::cout << "begin: " << __func__ << std::endl;
+
   int status_flag = 0;
 
   for (auto itr = sdus.begin(); itr != sdus.end(); itr++) {
@@ -145,6 +147,8 @@ void Mode4App::SdusHandler(std::vector<json> sdus, double send_time, double recv
       }
     }
   }
+
+  // std::cout << "end: " << __func__ << std::endl;
 }
 
 // void Mode4App::SduHandler(json sdu)
@@ -154,10 +158,14 @@ void Mode4App::SdusHandler(std::vector<json> sdus, double send_time, double recv
 
 void Mode4App::myHandleLowerMessage(std::string payload, std::string type, double send_time, double recv_time)
 {
+  // std::cout << "begin: " << __func__ << std::endl;
+
   json recv_data;
   recv_data["payload"] = payload;
   recv_data["send_time"] = send_time;
   recv_data["recv_time"] = recv_time;
+
+  // std::cout << "payload: " << payload << ", type: " << type << std::endl;
 
   if (type == "cam") {
     string_vector2file(cams_recv_json_file_path(carlaVeinsDataDir, sumo_id), { recv_data.dump() });
@@ -172,10 +180,13 @@ void Mode4App::myHandleLowerMessage(std::string payload, std::string type, doubl
     assert(type == "cam" || type == "cpm" || type == "pdu");
 
   }
+
+  // std::cout << "end: " << __func__ << std::endl;
 }
 
 void Mode4App::handleLowerMessage(cMessage* msg)
 {
+    // std::cout << "received msg: " << msg->getName() << std::endl;
     if (msg->isName("CBR")) {
         Cbr* cbrPkt = check_and_cast<Cbr*>(msg);
         double channel_load = cbrPkt->getCbr();
@@ -185,10 +196,12 @@ void Mode4App::handleLowerMessage(cMessage* msg)
     } else {
         // ----- Begin My Code -----
         if (veins::VeinsCarlaPacket* vc_pkt = dynamic_cast<veins::VeinsCarlaPacket*>(msg)) {
+          // std::cout << "vc_pkt" << std::endl;
           myHandleLowerMessage((std::string) vc_pkt->getPayload(), (std::string) vc_pkt->getType(), vc_pkt->getTimestamp().dbl(), simTime().dbl());
 
         } // ----- End My Code -----
         else {
+          // std::cout << "not vc_pkt" << std::endl;
             AlertPacket* pkt = check_and_cast<AlertPacket*>(msg);
             if (pkt == 0) { throw cRuntimeError("Mode4App::handleMessage - FATAL! Error when casting to AlertPacket"); }
         }
@@ -206,7 +219,7 @@ void Mode4App::handleSelfMessage(cMessage* msg)
 {
     if (!strcmp(msg->getName(), "selfSender")){
         if (sendBeacons) {
-            std::cout << simTime() << std::endl;
+            // std::cout << simTime() << std::endl;
             // Replace method
             AlertPacket* packet = new AlertPacket("Alert");
             packet->setTimestamp(simTime());
@@ -234,9 +247,9 @@ void Mode4App::handleSelfMessage(cMessage* msg)
 
     } else if (!strcmp(msg->getName(), "_pdu_sender")) {
       if (isSduQueueEmpty()) {
-        // std::cout << "minimum_Bps" << std::endl;
+        // // std::cout << "minimum_Bps" << std::endl;
         double minimum_Bps = _sdu_tx_ptr->minimum_Bps(simTime().dbl());
-
+        // std::cout << "minimum_Bps: " << minimum_Bps << std::endl;
         if (0 < minimum_Bps) {
           // std::cout << "Bps2packet_size_and_rri" << std::endl;
           json pdu_info = Bps2packet_size_and_rri(minimum_Bps);
@@ -244,7 +257,7 @@ void Mode4App::handleSelfMessage(cMessage* msg)
           json pdu = _sdu_tx_ptr->generate_PDU(pdu_info["size"].get<int>(), simTime().dbl());
 
           // std::cout << "dump pdu" << std::endl;
-          SendPacket(pdu.dump(), "pdu", pdu["size"].get<int>(), pdu["duration"].get<int>());
+          SendPacket(pdu.dump(), "pdu", pdu["size"].get<int>(), pdu["duration"].get<int>(), pdu_info);
           // std::cout << "end: dump pdu" << std::endl;
         }
       }
@@ -289,12 +302,12 @@ bool Mode4App::isSduQueueEmpty()
     }
 }
 
-void Mode4App::SendPacket(std::string payload, std::string type, int payload_byte_size, int duration_ms)
+void Mode4App::SendPacket(std::string payload, std::string type, int payload_byte_size, int duration_ms, json pdu_info={})
 {
   if (type == "pdu") {
 
     try {
-      std::cout << "payload: " << payload << "\n, size: " << payload_byte_size << "\n, duration_ms: " << duration_ms << std::endl;
+      // std::cout << "payload: " << payload << "\n, size: " << payload_byte_size << "\n, duration_ms: " << duration_ms << std::endl;
       veins::VeinsCarlaPacket* packet = new veins::VeinsCarlaPacket();
 
       packet->setPayload(payload.c_str());
@@ -313,13 +326,15 @@ void Mode4App::SendPacket(std::string payload, std::string type, int payload_byt
       lteControlInfo->setPriority(priority_);
       lteControlInfo->setDuration(duration_ms);
       lteControlInfo->setCreationTime(simTime());
+      lteControlInfo->setMyChannelNum(pdu_info["ch"].get<int>());
+      lteControlInfo->setMyRri(pdu_info["rri"].get<double>() * 10);
 
       packet->setControlInfo(lteControlInfo);
 
       Mode4BaseApp::sendLowerPackets(packet);
       // ----- End Population -----
     } catch (...) {
-        std::cout << "appQueue error: "<< payload.c_str() << "." << std::endl;
+        // std::cout << "appQueue error: "<< payload.c_str() << "." << std::endl;
     }
 
   } else if (type == "cam" || type == "cpm") {
@@ -367,12 +382,12 @@ void Mode4App::syncCarlaVeinsData(cMessage* msg)
 
   if (!target_pos.empty()) {
     json packet = _pos_send_ptr->convert_payload_and_size(target_pos, sensor_num, max_cpm_size);
-    // std::cout << packet["payload"].get<std::string>() << std::endl;
+    // // std::cout << packet["payload"].get<std::string>() << std::endl;
     if (0 < packet["size"].get<int>()) { // size 0 means that there are no enough size to contain perceived_objects.
       SendPacket(packet["payload"].get<std::string>(), "cpm", packet["size"].get<int>(), duration_);
     }
 
-    return;
+    // return;
   }
 }
 // ----- End My Code -----

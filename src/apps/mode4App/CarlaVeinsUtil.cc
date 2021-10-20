@@ -13,7 +13,7 @@ bool JsonDataStore::is_empty(){
 
 void JsonDataStore::load_json_str(std::string json_str){
   try {
-    // std::cout << json_str << std::endl;
+    // // std::cout << json_str << std::endl;
     _data.push_back(json::parse(json_str));
 
   } catch (...) {
@@ -61,16 +61,16 @@ std::vector<json> JsonDataStore::data_between_time(double begin_time, double end
     double timestamp = d["timestamp"].get<double>();
 
     if (timestamp < begin_time) {
-      // std::cout << "The packet is too old, so erase it." << std::endl;
+      // // std::cout << "The packet is too old, so erase it." << std::endl;
       _data.erase(ptr);
 
     } else if (begin_time <= timestamp && timestamp < end_time) {
-      // std::cout << "The packet is created now, so send it." << std::endl;
+      // // std::cout << "The packet is created now, so send it." << std::endl;
       results.push_back(d);
       _data.erase(ptr);
 
     } else {
-      // std::cout << "The packet should be sent in the next timestamp, so break" << std::endl;
+      // // std::cout << "The packet should be sent in the next timestamp, so break" << std::endl;
       break;
 
     }
@@ -229,13 +229,13 @@ void VirtualTxSduQueue::delete_expired_fragments(double current_time)
   if (_fragment != NULL && _fragment["expired_time"].get<double>() <= current_time) {
     _fragment = NULL;
   }
-  std::cout << "_fragment is NULL" << std::endl;
+  // std::cout << "_fragment is NULL" << std::endl;
 
   for (auto ptr = _priority2packets.begin(); ptr != _priority2packets.end(); ptr++) {
     auto itr = ptr->second.begin();
 
     while (itr != ptr->second.end()) {
-      std::cout << "in loop: " << (*itr) << std::endl;
+      // std::cout << "in loop: " << (*itr) << std::endl;
       if ((*itr)["expired_time"].get<double>() <= current_time) {
         ptr->second.erase(itr);
       } else {
@@ -245,18 +245,6 @@ void VirtualTxSduQueue::delete_expired_fragments(double current_time)
   }
 
 }
-
-// json VirtualTxSduQueue::formatted_packet(std::string payload, std::string type, int payload_byte_size, double current_time, double duration)
-// {
-//   json packet;
-//   packet["payload"] = payload;
-//   packet["type"] = type;
-//   packet["size"] = payload_byte_size;
-//   packet["generatted_time"] = current_time;
-//   packet["expired_time"] = current_time + duration;
-//
-//   return packet;
-// }
 
 json VirtualTxSduQueue::formatted_fragment(json packet, int lefted_size, int status_flag) {
   json fragment = packet;
@@ -337,13 +325,13 @@ json VirtualTxSduQueue::add_fragment_into_pdu(json pdu, json send_fragment, doub
 {
   std::vector<json> sdus;
   if (pdu.find("sdu") != pdu.end()) {
-    std::cout << "find sdu" << std::endl;
+    // std::cout << "find sdu" << std::endl;
     sdus = pdu["sdus"].get<std::vector<json>>();
   }
-  std::cout << "end find sdu" << std::endl;
+  // std::cout << "end find sdu" << std::endl;
 
   double tmp_duration = (send_fragment["expired_time"].get<double>() - current_time) * 1000.0;
-  std::cout << "tmp_duration: " << tmp_duration << "duration: " << int(tmp_duration) << std::endl;
+  // std::cout << "tmp_duration: " << tmp_duration << "duration: " << int(tmp_duration) << std::endl;
   if (sdus.size() == 0 || tmp_duration < pdu["duration"].get<int>()) {
     pdu["duration"] = (int)(tmp_duration + 1);
   }
@@ -374,13 +362,13 @@ json VirtualTxSduQueue::generate_PDU(int maximum_byte, double current_time)
 
     while (itr != ptr->second.end()) {
       _fragment = this->formatted_fragment(*itr, (*itr)["size"].get<int>(), 1);
-      std::cout << "update_pdu_by_fragment" << std::endl;
+      // std::cout << "update_pdu_by_fragment" << std::endl;
       pdu = this->update_pdu_by_fragment(pdu, current_time);
-      std::cout << "end: update_pdu_by_fragment" << std::endl;
+      // std::cout << "end: update_pdu_by_fragment" << std::endl;
 
-      std::cout << "erase" << std::endl;
+      // std::cout << "erase" << std::endl;
       ptr->second.erase(itr);
-      std::cout << "end: erase" << std::endl;
+      // std::cout << "end: erase" << std::endl;
 
       if (_fragment != NULL || pdu["maximum_size"].get<int>() <= pdu["size"].get<int>()) { break; }
     }
@@ -398,9 +386,9 @@ json VirtualTxSduQueue::generate_PDU(int maximum_byte, double current_time)
 
 json VirtualTxSduQueue::minimum_Bps(double current_time)
 {
-  std::cout << "delete_expired_fragments" << std::endl;
+  // std::cout << "delete_expired_fragments" << std::endl;
   this->delete_expired_fragments(current_time);
-  std::cout << "end: delete_expired_fragments" << std::endl;
+  // std::cout << "end: delete_expired_fragments" << std::endl;
 
   double total_byte = 0;
   double Bps = 0;
@@ -420,6 +408,7 @@ json VirtualTxSduQueue::minimum_Bps(double current_time)
     }
   }
 
+  // std::cout << "end: minimum_Bps" << std::endl;
   return Bps;
 }
 // ----- End: VirtualTxSduQueue -----
@@ -428,23 +417,28 @@ json VirtualTxSduQueue::minimum_Bps(double current_time)
 // ----- Begin: VirtualRxSduQueue -----
 json VirtualRxSduQueue::enque_and_decode(json sdu)
 {
+  // std::cout << "begin: " << __func__ << std::endl;
   json result = NULL;
 
   std::string sender_id = sdu["sender_id"].get<std::string>();
-  std::string packet_id = sdu["packet_id"].get<std::string>();
+  int packet_id = sdu["packet_id"].get<int>();
 
+  // std::cout << __func__ << ": push_back" << std::endl;
   _sender2packet_id2sdus[sender_id][packet_id].push_back(sdu);
 
   // ----- decode sdus -----
   int packet_size = sdu["size"].get<int>();
   int sdu_total_size = 0;
   for (auto sdu_ptr = _sender2packet_id2sdus[sender_id][packet_id].begin(); sdu_ptr != _sender2packet_id2sdus[sender_id][packet_id].end(); sdu_ptr++) {
+    // std::cout << __func__ << ": get leftted size" << std::endl;
     sdu_total_size += (*sdu_ptr)["lefted_size"].get<int>();
 
     if (sdu_total_size < packet_size) {
+      // std::cout << __func__ << ": continue" << std::endl;
       continue;
 
     } else if (sdu_total_size == packet_size) {
+      // std::cout << __func__ << ": decode" << std::endl;
       result = (*sdu_ptr);
       break;
 
@@ -455,9 +449,11 @@ json VirtualRxSduQueue::enque_and_decode(json sdu)
   }
 
   if (result != NULL) {
+    // std::cout << __func__ << ": clear" << std::endl;
     _sender2packet_id2sdus[sender_id][packet_id].clear();
   }
 
+  // std::cout << "end: " << __func__ << std::endl;
   return result;
 }
 // ----- End: VirtualRxSduQueue -----
@@ -554,7 +550,7 @@ void string_vector2file(std::string file_path, std::vector<std::string> str_vec)
 
     if (ofs.is_open()) {
         for (auto payload = str_vec.begin(); payload != str_vec.end(); payload++) {
-            // std::cout << "---: "<< *payload << "---" << std::endl;
+            // // std::cout << "---: "<< *payload << "---" << std::endl;
             ofs << *payload << "\n";
         }
     }
@@ -621,16 +617,26 @@ json Bps2packet_size_and_rri(double minimum_Bps)
   json result;
   // result["size"] = 800;
   result["size"] = 300;
-  result["rri"] = 0.02;
+  result["rri"] = 1.0;
+  result["ch"] = 1;
 
   std::vector<int> possible_bytes = {300, 450, 600, 800};
   std::vector<double> possible_rris = {0.1, 0.05, 0.02};
+
+  std::unordered_map<int, int> bytes2channel_num_in_MCS7 = {
+    {100, 1},
+    {300, 2},
+    {450, 3},
+    {600, 4},
+    {800, 5}
+  };
 
   for (auto byte_ptr = possible_bytes.begin(); byte_ptr != possible_bytes.end(); byte_ptr++) {
     for (auto rri_ptr = possible_rris.begin(); rri_ptr != possible_rris.end(); rri_ptr++) {
       if (minimum_Bps <= (*byte_ptr) / (*rri_ptr)) {
         result["size"] = (*byte_ptr);
         result["rri"] = (*rri_ptr);
+        result["ch"] = bytes2channel_num_in_MCS7[(*byte_ptr)];
 
         return result;
 

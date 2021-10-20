@@ -645,7 +645,7 @@ void LteMacEnb::handleSelfMessage()
     /***************
      *  MAIN LOOP  *
      ***************/
-//    std::cout << "TTI: " << NOW << endl;
+//    // std::cout << "TTI: " << NOW << endl;
 
     int nodeCount = binder_->getNodeCount();
     if(nodeCount <= eNodeBCount)

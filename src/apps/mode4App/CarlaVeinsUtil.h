@@ -114,7 +114,8 @@ public:
 class VirtualRxSduQueue
 {
 public:
-  std::unordered_map<std::string, std::unordered_map<std::string, std::vector<json>>> _sender2packet_id2sdus;
+  // std::unordered_map<std::string, std::unordered_map<std::string, std::vector<json>>> _sender2packet_id2sdus;
+  std::unordered_map<std::string, std::unordered_map<int, std::vector<json>>> _sender2packet_id2sdus;
 
   json enque_and_decode(json fragment);
 };

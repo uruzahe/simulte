@@ -58,7 +58,7 @@ void LteAllocatorBestFit::checkHole(Candidate& candidate, Band holeIndex, unsign
         }
         // else do not update. The current candidate would satisfy the requested load.
     }
-//       std::cout << " New candidate is: index[" << candidate.index << "], len["<< candidate.len << "]" << endl;
+//       // std::cout << " New candidate is: index[" << candidate.index << "], len["<< candidate.len << "]" << endl;
 
 }
 
@@ -282,7 +282,7 @@ void LteAllocatorBestFit::prepareSchedule()
         // TODO: Find a better way to allocate IM from the end of the frame
         if (enableFrequencyReuse || dir == D2D_MULTI)
         {
-//            std::cout << NOW << " UE " << nodeId << " is D2D enabled" << endl;
+//            // std::cout << NOW << " UE " << nodeId << " is D2D enabled" << endl;
 
             // Check if the allocation is possible starting from the first unallocated band
             for( band=firstUnallocatedBand; band<numBands; band++ )
@@ -335,7 +335,7 @@ void LteAllocatorBestFit::prepareSchedule()
 
                 if(jump_band)
                 {
-//                    std::cout << NOW << " UE " << nodeId << " --- skipping band " << band << endl;
+//                    // std::cout << NOW << " UE " << nodeId << " --- skipping band " << band << endl;
 
                     if (!newHole)
                     {
