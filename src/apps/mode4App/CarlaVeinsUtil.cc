@@ -620,15 +620,15 @@ json Bps2packet_size_and_rri(double minimum_Bps)
   result["rri"] = 1.0;
   result["ch"] = 1;
 
-  std::vector<int> possible_bytes = {300, 450, 600, 800};
+  std::vector<int> possible_bytes = {300, 450, 600, 750};
   std::vector<double> possible_rris = {0.1, 0.05, 0.02};
 
   std::unordered_map<int, int> bytes2channel_num_in_MCS7 = {
-    {100, 1},
+    {150, 1},
     {300, 2},
     {450, 3},
     {600, 4},
-    {800, 5}
+    {750, 5}
   };
 
   for (auto byte_ptr = possible_bytes.begin(); byte_ptr != possible_bytes.end(); byte_ptr++) {
@@ -636,6 +636,8 @@ json Bps2packet_size_and_rri(double minimum_Bps)
       if (minimum_Bps <= (*byte_ptr) / (*rri_ptr)) {
         result["size"] = (*byte_ptr);
         result["rri"] = (*rri_ptr);
+
+        assert(bytes2channel_num_in_MCS7.find(*byte_ptr) != bytes2channel_num_in_MCS7.end());
         result["ch"] = bytes2channel_num_in_MCS7[(*byte_ptr)];
 
         return result;

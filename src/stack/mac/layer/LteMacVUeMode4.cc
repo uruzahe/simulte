@@ -1273,10 +1273,10 @@ void LteMacVUeMode4::flushHarqBuffers()
                         const unsigned int* tbsVect = itbs2tbs(mod, SINGLE_ANTENNA_PORT0, 1, mcs - i);
                         mcsCapacity = tbsVect[totalGrantedBlocks-1];
 
-                        // // std::cout << "pduLength: " << pduLength << ", mcsCapacity: " << mcsCapacity << ", mcs" << mcs << std::endl;
+                        // std::cout << "pduLength: " << pduLength << ", mcsCapacity: " << mcsCapacity << ", mcs" << mcs << std::endl;
                         if (mcsCapacity > pduLength)
                         {
-                            // // std::cout << "foundValidMCS: True" << std::endl;
+                            // std::cout << "foundValidMCS: True" << std::endl;
                             foundValidMCS = true;
                             mode4Grant->setMcs(mcs);
                             mode4Grant->setGrantedCwBytes(cw, mcsCapacity);

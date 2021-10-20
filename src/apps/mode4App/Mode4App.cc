@@ -253,7 +253,7 @@ void Mode4App::handleSelfMessage(cMessage* msg)
         if (0 < minimum_Bps) {
           // std::cout << "Bps2packet_size_and_rri" << std::endl;
           json pdu_info = Bps2packet_size_and_rri(minimum_Bps);
-          // std::cout << "generate_PDU: " << pdu_info["rri"].get<double>() << std::endl;
+          // std::cout << pdu_info << std::endl;
           json pdu = _sdu_tx_ptr->generate_PDU(pdu_info["size"].get<int>(), simTime().dbl());
 
           // std::cout << "dump pdu" << std::endl;
