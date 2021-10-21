@@ -215,6 +215,20 @@ VirtualTxSduQueue::VirtualTxSduQueue()
   _priority2packets[1] = {};
   _priority2packets[2] = {};
   _priority2packets[3] = {};
+
+
+  for (auto itr = bytes2channel_num_in_MCS7.begin(); itr != bytes2channel_num_in_MCS7.end(); itr++) {
+    for (auto jtr = possible_rris.begin(); jtr != possible_rris.end(); jtr++) {
+      cbr2seize_ch_rri[itr->first / (*jtr)] = {
+        {"size", itr->first},
+        {"ch", itr->second},
+        {"rri", (*jtr)}
+      };
+
+      cbrs.push_back(itr->first / (*jtr));
+    }
+  }
+  std::sort(cbrs.begin(), cbrs.end());
 }
 
 void VirtualTxSduQueue::delete_expired_fragments(double current_time)
@@ -277,10 +291,12 @@ json VirtualTxSduQueue::formatted_pdu(int maximum_size, double current_time) {
   return pdu;
 }
 
-void VirtualTxSduQueue::enque(int priority, json packet)
+void VirtualTxSduQueue::enque(json packet)
 {
   packet["packet_id"] = _packet_id;
-  _priority2packets[priority].push_back(packet);
+  
+  assert(std::find(_priority2packets.begin(), _priority2packets.end(), packet["priority"].get<int>()) != _priority2packets.end());
+  _priority2packets[packet["priority"].get<int>()].push_back(packet);
 
   _delete_expired_time = 0;
   _packet_id++;
@@ -325,13 +341,10 @@ json VirtualTxSduQueue::add_fragment_into_pdu(json pdu, json send_fragment, doub
 {
   std::vector<json> sdus;
   if (pdu.find("sdu") != pdu.end()) {
-    // std::cout << "find sdu" << std::endl;
     sdus = pdu["sdus"].get<std::vector<json>>();
   }
-  // std::cout << "end find sdu" << std::endl;
 
-  double tmp_duration = (send_fragment["expired_time"].get<double>() - current_time) * 1000.0;
-  // std::cout << "tmp_duration: " << tmp_duration << "duration: " << int(tmp_duration) << std::endl;
+  double tmp_duration = min((send_fragment["expired_time"].get<double>() - current_time) * 1000.0, send_fragment["max_duration"].get<double>());
   if (sdus.size() == 0 || tmp_duration < pdu["duration"].get<int>()) {
     pdu["duration"] = (int)(tmp_duration + 1);
   }
@@ -386,30 +399,49 @@ json VirtualTxSduQueue::generate_PDU(int maximum_byte, double current_time)
 
 json VirtualTxSduQueue::minimum_Bps(double current_time)
 {
-  // std::cout << "delete_expired_fragments" << std::endl;
-  this->delete_expired_fragments(current_time);
-  // std::cout << "end: delete_expired_fragments" << std::endl;
-
   double total_byte = 0;
-  double Bps = 0;
-  double tmp_Bps = 0;
+
+  json result;
+  std::vector<double> bps_vec = {0};
+  std::vector<double> rri_vec;
+
+  this->delete_expired_fragments(current_time);
 
   if (_fragment != NULL) {
-    total_byte = _fragment["lefted_size"].get<double>();
-    Bps = (_fragment["expired_time"].get<double>() - current_time);
+    total_byte += _fragment["lefted_size"].get<double>();
+    rri_vec.push_back(_fragment["expired_time"].get<double>() - current_time);
+    bps_vec.push_back(total_byte / rri_vec.back());
   }
 
   for (auto ptr = _priority2packets.begin(); ptr != _priority2packets.end(); ptr++) {
     for (auto itr = ptr->second.begin(); itr != ptr->second.end(); itr++) {
       total_byte += (*itr)["size"].get<double>();
-      tmp_Bps = total_byte / ((*itr)["expired_time"].get<double>() - current_time);
-
-      if (Bps < tmp_Bps) { Bps = tmp_Bps; }
+      rri_vec.push_back((*itr)["expired_time"].get<double>() - current_time);
+      bps_vec.push_back(total_byte / rri_vec.back());
     }
   }
 
-  // std::cout << "end: minimum_Bps" << std::endl;
-  return Bps;
+  return *std::max_element(bps_vec.begin(), bps_vec.end());
+}
+
+json VirtualTxSduQueue::Bps2packet_size_and_rri(double minimum_Bps)
+{
+  json result;
+  result["size"] = 300;
+  result["rri"] = 1.0;
+  result["ch"] = 1;
+
+
+  for (auto ltr = cbrs.begin(); ltr != cbrs.end(); ltr++) {
+    if (minimum_Bps <= (*ltr)) {
+      result["size"] = cbr2seize_ch_rri[(*ltr)]["size"].get<int>();
+      result["ch"] =   cbr2seize_ch_rri[(*ltr)]["ch"].get<int>();
+      result["rri"] =  cbr2seize_ch_rri[(*ltr)]["rri"].get<double>();
+      break;
+    }
+  }
+
+  return result;
 }
 // ----- End: VirtualTxSduQueue -----
 
@@ -457,7 +489,6 @@ json VirtualRxSduQueue::enque_and_decode(json sdu)
   return result;
 }
 // ----- End: VirtualRxSduQueue -----
-
 
 // ----- Begin: function -----
 std::string cams_json_file_path(std::string data_sync_dir, std::string sumo_id)
@@ -612,43 +643,13 @@ std::vector<std::string> get_cpm_payloads_from_carla(std::string sumo_id, std::s
     //    unlink((data_sync_dir + sensor_lock_file_name).c_str());
 }
 
-json Bps2packet_size_and_rri(double minimum_Bps)
-{
-  json result;
-  // result["size"] = 800;
-  result["size"] = 300;
-  result["rri"] = 1.0;
-  result["ch"] = 1;
 
-  std::vector<int> possible_bytes = {300, 450, 600, 750};
-  std::vector<double> possible_rris = {0.1, 0.05, 0.02};
-
-  std::unordered_map<int, int> bytes2channel_num_in_MCS7 = {
-    {150, 1},
-    {300, 2},
-    {450, 3},
-    {600, 4},
-    {750, 5}
-  };
-
-  for (auto byte_ptr = possible_bytes.begin(); byte_ptr != possible_bytes.end(); byte_ptr++) {
-    for (auto rri_ptr = possible_rris.begin(); rri_ptr != possible_rris.end(); rri_ptr++) {
-      if (minimum_Bps <= (*byte_ptr) / (*rri_ptr)) {
-        result["size"] = (*byte_ptr);
-        result["rri"] = (*rri_ptr);
-
-        assert(bytes2channel_num_in_MCS7.find(*byte_ptr) != bytes2channel_num_in_MCS7.end());
-        result["ch"] = bytes2channel_num_in_MCS7[(*byte_ptr)];
-
-        return result;
-
-      } else {
-        continue;
-
-      }
-    }
+template <class X> X min(X v1, X v2) {
+  if (v1 <= v2) {
+    return v1;
+  } else {
+    return v2;
   }
-
-  return result;
 }
+
 // ----- End: function -----

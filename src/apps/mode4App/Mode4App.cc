@@ -89,7 +89,7 @@ void Mode4App::initialize(int stage)
         carlaTimeStep = par("carlaTimeStep").doubleValue();
 
         sumo_id = mobility->external_id;
-        // std::cout << "sumo_id: " << sumo_id << " is loaded. " << std::endl;
+        EV << __func__ << ", sumo_id: " << sumo_id << " is loaded. " << std::endl;
         appQueue = {};
 
         // ----- App Layer -----
@@ -126,6 +126,7 @@ void Mode4App::initialize(int stage)
         scheduleAt((simTime() + delay).trunc(SIMTIME_US), _pdu_sender);
     }
 }
+
 
 void Mode4App::SdusHandler(std::vector<json> sdus, double send_time, double recv_time)
 {
@@ -190,6 +191,7 @@ void Mode4App::handleLowerMessage(cMessage* msg)
     if (msg->isName("CBR")) {
         Cbr* cbrPkt = check_and_cast<Cbr*>(msg);
         double channel_load = cbrPkt->getCbr();
+        std::cout << __func__ << ", cbr: " << channel_load << std::endl;
         emit(cbr_, channel_load);
         delete cbrPkt;
 
@@ -247,18 +249,13 @@ void Mode4App::handleSelfMessage(cMessage* msg)
 
     } else if (!strcmp(msg->getName(), "_pdu_sender")) {
       if (isSduQueueEmpty()) {
-        // // std::cout << "minimum_Bps" << std::endl;
         double minimum_Bps = _sdu_tx_ptr->minimum_Bps(simTime().dbl());
-        // std::cout << "minimum_Bps: " << minimum_Bps << std::endl;
         if (0 < minimum_Bps) {
-          // std::cout << "Bps2packet_size_and_rri" << std::endl;
-          json pdu_info = Bps2packet_size_and_rri(minimum_Bps);
-          // std::cout << pdu_info << std::endl;
+          json pdu_info = _sdu_tx_ptr->Bps2packet_size_and_rri(minimum_Bps);
+          std::cout << pdu_info << std::endl;
           json pdu = _sdu_tx_ptr->generate_PDU(pdu_info["size"].get<int>(), simTime().dbl());
 
-          // std::cout << "dump pdu" << std::endl;
           SendPacket(pdu.dump(), "pdu", pdu["size"].get<int>(), pdu["duration"].get<int>(), pdu_info);
-          // std::cout << "end: dump pdu" << std::endl;
         }
       }
 
@@ -343,15 +340,18 @@ void Mode4App::SendPacket(std::string payload, std::string type, int payload_byt
     packet["type"] = type;
     packet["size"] = payload_byte_size;
     packet["sender_id"] = sumo_id;
+    packet["max_duration"] = 100;
     packet["expired_time"] = simTime().dbl() + 0.1;
 
     if (type == "cam") {
-      _sdu_tx_ptr->enque(2, packet);
+      packet["priority"] = 2;
     } else if (type == "cpm") {
-      _sdu_tx_ptr->enque(3, packet);
+      packet["priority"] = 3;
     } else {
       assert(type == "cam" || type == "cpm");
     }
+
+    _sdu_tx_ptr->enque(packet);
 
     // ----
   } else {

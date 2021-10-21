@@ -17,6 +17,7 @@ using json = nlohmann::json;
 #define MY_MAC_HEADER_BYTE 2
 #define MY_RLC_UM_HEADER_BYTE 1
 #define MY_PDCP_HEADER_BYTE 1 // PDCP_HEADER is added in OpenCV2X default codes, therefore we don't use MY_PDCP_HEADER_BYTE.
+#define MY_GEONETWORK_HEADER 14 // 14 (Byte) = 4 + 8 + 2, V, E. E. N. (2014). Vehicular Communications ; GeoNetworking ; 1, 1–104 ETSI EN 302 636-4-1 V1.2.1.
 
 
 class JsonDataStore
@@ -96,11 +97,23 @@ public:
   int _packet_id;
   double _delete_expired_time;
 
+
+  std::vector<double> possible_rris = {0.1, 0.05, 0.02};
+  std::map<int, int> bytes2channel_num_in_MCS7 = {
+    {150, 1},
+    {300, 2},
+    {450, 3},
+    {600, 4},
+    {750, 5}
+  };
+  std::map<double, json> cbr2seize_ch_rri;
+  std::vector<double> cbrs;
+
   VirtualTxSduQueue();
 
   json add_fragment_into_pdu(json pdu, json send_fragment, double current_time);
   void delete_expired_fragments(double current_time);
-  void enque(int priority, json packet);
+  void enque(json packet);
   // json formatted_packet(std::string payload, std::string type, int payload_byte_size, double current_time, double duration);
   json formatted_fragment(json packet, int leftted_size, int status_flag);
   json formatted_pdu(int maximum_size, double current_time);
@@ -108,7 +121,7 @@ public:
   json minimum_Bps(double current_time);
   json update_fragment(json fragment, int lefted_size, int status_flag);
   json update_pdu_by_fragment(json pdu, double current_time);
-
+  json Bps2packet_size_and_rri(double minimum_Bps);
 };
 
 class VirtualRxSduQueue
@@ -119,6 +132,7 @@ public:
 
   json enque_and_decode(json fragment);
 };
+
 
 json add_time_attribute_to_json(json data, std::string attr_name, double t);
 
@@ -152,4 +166,4 @@ void set_cpm_payloads_for_carla(std::string sumo_id, std::string data_sync_dir, 
 
 std::vector<std::string> get_cpm_payloads_from_carla(std::string sumo_id, std::string data_sync_dir, bool read_only);
 
-json Bps2packet_size_and_rri(double minimum_Bps);
+template <class X> X min(X v1, X v2);
