@@ -133,6 +133,18 @@ public:
   json enque_and_decode(json fragment);
 };
 
+class VirtualGeoNetwork : public JsonDataStore
+{
+public:
+  int _itsGnMaxSduSize;
+  int _itsGnMaxPacketLifetime;
+  int _itsGnMinPacketRepetitionInterval;
+  int _itsGnMaxGeoAreaSize;
+
+  void enque();
+  std::vector<json> deque();
+}
+
 
 json add_time_attribute_to_json(json data, std::string attr_name, double t);
 

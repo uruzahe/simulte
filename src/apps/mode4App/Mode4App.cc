@@ -89,7 +89,7 @@ void Mode4App::initialize(int stage)
         carlaTimeStep = par("carlaTimeStep").doubleValue();
 
         sumo_id = mobility->external_id;
-        EV << __func__ << ", sumo_id: " << sumo_id << " is loaded. " << std::endl;
+        std::cout << __func__ << ", sumo_id: " << sumo_id << " is loaded. " << std::endl;
         appQueue = {};
 
         // ----- App Layer -----
@@ -100,6 +100,9 @@ void Mode4App::initialize(int stage)
         _pos_ptr = new PerceivedObjectes;
         _pos_send_ptr = new POSendHandler;
         _pos_recv_ptr = new PORecvHandler;
+
+        // ----- Virtual Network Layer -----
+        _network_ptr = new VirtualGeoNetwork;
 
         // ----- Virtual Access Layer Queue -----
         _sdu_tx_ptr = new VirtualTxSduQueue;
@@ -152,10 +155,6 @@ void Mode4App::SdusHandler(std::vector<json> sdus, double send_time, double recv
   // std::cout << "end: " << __func__ << std::endl;
 }
 
-// void Mode4App::SduHandler(json sdu)
-// {
-//
-// }
 
 void Mode4App::myHandleLowerMessage(std::string payload, std::string type, double send_time, double recv_time)
 {

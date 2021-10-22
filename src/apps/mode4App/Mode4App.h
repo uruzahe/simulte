@@ -108,6 +108,7 @@ protected:
    bool isSduQueueEmpty();
    void SendPacket(std::string payload, std::string type, int payload_byte_size, int duration, json pdu_info);
    void SdusHandler(std::vector<json> sdus, double send_time, double recv_time);
+   json GeoNetworkHandler();
    // void SduHandler(json sdu);
    void myHandleLowerMessage(std::string payload, std::string type, double send_time, double recv_time);
    virtual void loadCarlaVeinsData(bool read_only);
@@ -130,6 +131,7 @@ protected:
    // In default codes of OpenCV2X, sdu fragments are removed if new packets are generated in the application layer (See enque method of UmTxEntity.cc).
    // Therefore, we have to generate packets when SDU queue is empty.
    std::vector<std::string> appQueue;
+   VirtualGeoNetwork* _network_ptr;
    VirtualTxSduQueue* _sdu_tx_ptr;
    VirtualRxSduQueue* _sdu_rx_ptr;
    simtime_t _pdu_interval;
