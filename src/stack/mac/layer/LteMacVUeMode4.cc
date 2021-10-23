@@ -34,11 +34,15 @@
 #include "inet/common/ModuleAccess.h"
 #include "inet/networklayer/ipv4/IPv4InterfaceData.h"
 #include "stack/mac/amc/LteMcs.h"
+#include "stack/mac/packet/LteMacSduRequest.h"
 #include <map>
 
+
+
 // ----- Begin My Code -----
-#include "stack/mac/packet/LteMacSduRequest.h"
+#include "apps/cpm/PduMakeInfo_m.h"
 // ----- End My Code -----
+
 
 Define_Module(LteMacVUeMode4);
 
@@ -1089,6 +1093,13 @@ void LteMacVUeMode4::macHandleSps(cPacket* pkt)
     // TODO: Setup for HARQ retransmission, if it can't be satisfied then selection must occur again.
 
     CSRs.clear();
+
+    // ----- Begin My Code -----
+    PduMakeInfo* pdu_make_info_pkt = new PduMakeInfo("PduMakeInfo");
+    pdu_make_info_pkt->setStartTime(selectedStartTime.dbl());
+    pdu_make_info_pkt->setRri(periodCounter_ * SLOT_2_MS);
+    sendUpperPackets(pdu_make_info_pkt);
+    // ----- Begin My Code -----
 
     delete pkt;
 }

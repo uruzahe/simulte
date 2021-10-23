@@ -244,6 +244,15 @@ void LtePdcpRrcUeD2D::handleMessage(cMessage* msg)
         send(pkt, dataOut_);
         emit(sentPacketToUpperLayer, pkt);
     }
+    // ----- Begin My Code -----
+    else if (strcmp(pkt->getName(), "PduMakeInfo") == 0)
+    {
+        EV << "LtePdcp : Sending packet " << pkt->getName() << " on port DataOut\n";
+        // Send message
+        send(pkt, dataOut_);
+        emit(sentPacketToUpperLayer, pkt);
+    }
+    // ----- End My Code -----
     else
     {
         LtePdcpRrcBase::handleMessage(msg);

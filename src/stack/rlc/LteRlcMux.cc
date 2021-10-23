@@ -34,6 +34,13 @@ void LteRlcMux::mac2rlc(cPacket *pkt)
         EV << "LteRlcMux : Sending packet " << pkt->getName() << " to port UM_Sap$o\n";
         send(pkt, umSap_[OUT]);
     }
+    // ----- Begin My Code -----
+    else if (strcmp(pkt->getName(), "PduMakeInfo") == 0)
+    {
+        EV << "LteRlcMux : Sending packet " << pkt->getName() << " to port UM_Sap$o\n";
+        send(pkt, umSap_[OUT]);
+    }
+    // ----- End My Code -----
     else
     {
         LteControlInfo* lteInfo = check_and_cast<LteControlInfo*>(pkt->getControlInfo());

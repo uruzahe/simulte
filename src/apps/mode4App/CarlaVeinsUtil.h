@@ -143,7 +143,7 @@ public:
 
   void enque();
   std::vector<json> deque();
-}
+};
 
 
 json add_time_attribute_to_json(json data, std::string attr_name, double t);

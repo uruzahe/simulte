@@ -25,6 +25,9 @@
 
 // ----- Begin My Code -----
 #include <nlohmann/json.hpp>
+#include "apps/cpm/PduMakeInfo_m.h"
+// ----- End My Code -----
+
 
 using json = nlohmann::json;
 // ----- End My Code -----
@@ -194,6 +197,19 @@ void Mode4App::handleLowerMessage(cMessage* msg)
         emit(cbr_, channel_load);
         delete cbrPkt;
 
+    } else if (msg->isName("PduMakeInfo")){
+      PduMakeInfo* pdu_make_info_pkt = check_and_cast<PduMakeInfo*>(msg);
+      double start_time = pdu_make_info_pkt->getStartTime();
+      double rri = pdu_make_info_pkt->getRri();
+
+      // std::cout << "start_time: " << start_time << ", rri: " << rri << std::endl;
+      cancelEvent(selfSender_);
+      cancelEvent(_pdu_sender);
+
+      _pdu_interval = ((double) rri) / 1000.0;
+
+      scheduleAt(start_time, selfSender_);
+      scheduleAt(start_time, _pdu_sender);
     } else {
         // ----- Begin My Code -----
         if (veins::VeinsCarlaPacket* vc_pkt = dynamic_cast<veins::VeinsCarlaPacket*>(msg)) {
