@@ -109,17 +109,21 @@ public:
   std::map<double, json> cbr2seize_ch_rri;
   std::vector<double> cbrs;
 
+  double _max_size;
+  double _max_rri;
+  double _max_ch;
+
   VirtualTxSduQueue();
 
   json add_fragment_into_pdu(json pdu, json send_fragment, double current_time);
   void delete_expired_fragments(double current_time);
   void enque(json packet);
   // json formatted_packet(std::string payload, std::string type, int payload_byte_size, double current_time, double duration);
-  json formatted_fragment(json packet, int leftted_size, int status_flag);
+  json formatted_fragment(json packet, int leftted_size, int status_flag, int start_byte, int end_byte);
   json formatted_pdu(int maximum_size, double current_time);
   json generate_PDU(int maximum_byte, double current_time);
   json minimum_Bps(double current_time);
-  json update_fragment(json fragment, int lefted_size, int status_flag);
+  json update_fragment(json fragment, int lefted_size, int status_flag, int start_byte, int end_byte);
   json update_pdu_by_fragment(json pdu, double current_time);
   json Bps2packet_size_and_rri(double minimum_Bps);
 };
@@ -127,10 +131,11 @@ public:
 class VirtualRxSduQueue
 {
 public:
-  // std::unordered_map<std::string, std::unordered_map<std::string, std::vector<json>>> _sender2packet_id2sdus;
   std::unordered_map<std::string, std::unordered_map<int, std::vector<json>>> _sender2packet_id2sdus;
+  std::unordered_map<std::string, std::unordered_map<int, std::unordered_map<int, json>>> _sender2packet_id2start_byte2sdu;
 
   json enque_and_decode(json fragment);
+  bool is_decoded(std::string sender_id, int packet_id, int start_byte);
 };
 
 class VirtualGeoNetwork : public JsonDataStore

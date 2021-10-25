@@ -229,6 +229,10 @@ VirtualTxSduQueue::VirtualTxSduQueue()
     }
   }
   std::sort(cbrs.begin(), cbrs.end());
+
+  _max_size = cbr2seize_ch_rri[cbrs.back()]["size"].get<int>();
+  _max_ch =   cbr2seize_ch_rri[cbrs.back()]["ch"].get<int>();
+  _max_rri =  cbr2seize_ch_rri[cbrs.back()]["rri"].get<double>();
 }
 
 void VirtualTxSduQueue::delete_expired_fragments(double current_time)
@@ -260,21 +264,29 @@ void VirtualTxSduQueue::delete_expired_fragments(double current_time)
 
 }
 
-json VirtualTxSduQueue::formatted_fragment(json packet, int lefted_size, int status_flag) {
+json VirtualTxSduQueue::formatted_fragment(json packet, int lefted_size, int status_flag, int start_byte, int end_byte) {
+  assert(start_byte < end_byte);
+
   json fragment = packet;
 
   fragment["lefted_size"] = lefted_size;
   fragment["status_flag"] = status_flag; // 01: start flag, 10: end flag, 11: packet, 00: middle frag
   fragment["seq"] = _past_fragments.size();
+  fragment["start_byte"] = start_byte;
+  fragment["end_byte"] = end_byte;
 
   _past_fragments.push_back(fragment);
 
   return fragment;
 }
 
-json VirtualTxSduQueue::update_fragment(json fragment, int lefted_size, int status_flag) {
+json VirtualTxSduQueue::update_fragment(json fragment, int lefted_size, int status_flag, int start_byte, int end_byte) {
+  assert(start_byte < end_byte);
+
   fragment["lefted_size"] = lefted_size;
   fragment["status_flag"] = status_flag;
+  fragment["start_byte"] = start_byte;
+  fragment["end_byte"] = end_byte;
 
   return fragment;
 }
@@ -294,7 +306,7 @@ json VirtualTxSduQueue::formatted_pdu(int maximum_size, double current_time) {
 void VirtualTxSduQueue::enque(json packet)
 {
   packet["packet_id"] = _packet_id;
-  
+
   assert(std::find(_priority2packets.begin(), _priority2packets.end(), packet["priority"].get<int>()) != _priority2packets.end());
   _priority2packets[packet["priority"].get<int>()].push_back(packet);
 
@@ -306,13 +318,15 @@ json VirtualTxSduQueue::update_pdu_by_fragment(json pdu, double current_time) {
   int lefted_size = pdu["maximum_size"].get<int>() - pdu["size"].get<int>();
 
   if (_fragment != NULL && 0 < lefted_size) {
-    if (_fragment["lefted_size"].get<int>() <= lefted_size) {
+    if (_fragment["end_byte"].get<int>() - _fragment["start_byte"].get<int>() <= lefted_size) {
       pdu = this->add_fragment_into_pdu(
           pdu,
           this->update_fragment(
             _fragment,
             _fragment["lefted_size"].get<int>(),
-            _fragment["status_flag"].get<int>() + 10
+            _fragment["status_flag"].get<int>() + 10,
+            _fragment["start_byte"].get<int>(),
+            _fragment["end_byte"].get<int>()
           ),
           current_time
       );
@@ -325,12 +339,20 @@ json VirtualTxSduQueue::update_pdu_by_fragment(json pdu, double current_time) {
           this->update_fragment(
             _fragment,
             lefted_size,
-            _fragment["status_flag"].get<int>()
+            _fragment["status_flag"].get<int>(),
+            _fragment["start_byte"].get<int>(),
+            _fragment["start_byte"].get<int>() + lefted_size
           ),
           current_time
       );
 
-      _fragment = formatted_fragment(_fragment, _fragment["lefted_size"].get<int>() - lefted_size, 0);
+      _fragment = formatted_fragment(
+        _fragment,
+        _fragment["lefted_size"].get<int>() - lefted_size,
+        0,
+        _fragment["start_byte"].get<int>() + lefted_size,
+        _fragment["end_byte"].get<int>()
+      );
     }
   }
 
@@ -374,14 +396,11 @@ json VirtualTxSduQueue::generate_PDU(int maximum_byte, double current_time)
     auto itr = ptr->second.begin();
 
     while (itr != ptr->second.end()) {
-      _fragment = this->formatted_fragment(*itr, (*itr)["size"].get<int>(), 1);
-      // std::cout << "update_pdu_by_fragment" << std::endl;
-      pdu = this->update_pdu_by_fragment(pdu, current_time);
-      // std::cout << "end: update_pdu_by_fragment" << std::endl;
+      _fragment = this->formatted_fragment(*itr, (*itr)["size"].get<int>(), 1, 0, (*itr)["size"].get<int>());
 
-      // std::cout << "erase" << std::endl;
+      pdu = this->update_pdu_by_fragment(pdu, current_time);
+
       ptr->second.erase(itr);
-      // std::cout << "end: erase" << std::endl;
 
       if (_fragment != NULL || pdu["maximum_size"].get<int>() <= pdu["size"].get<int>()) { break; }
     }
@@ -427,9 +446,9 @@ json VirtualTxSduQueue::minimum_Bps(double current_time)
 json VirtualTxSduQueue::Bps2packet_size_and_rri(double minimum_Bps)
 {
   json result;
-  result["size"] = 300;
-  result["rri"] = 1.0;
-  result["ch"] = 1;
+  result["size"] = cbr2seize_ch_rri[cbrs.back()]["size"].get<int>();
+  result["ch"] =   cbr2seize_ch_rri[cbrs.back()]["ch"].get<int>();
+  result["rri"] =  cbr2seize_ch_rri[cbrs.back()]["rri"].get<double>();
 
 
   for (auto ltr = cbrs.begin(); ltr != cbrs.end(); ltr++) {
@@ -455,38 +474,101 @@ json VirtualRxSduQueue::enque_and_decode(json sdu)
   std::string sender_id = sdu["sender_id"].get<std::string>();
   int packet_id = sdu["packet_id"].get<int>();
 
-  // std::cout << __func__ << ": push_back" << std::endl;
-  _sender2packet_id2sdus[sender_id][packet_id].push_back(sdu);
+  std::vector<json> sdus = {sdu};
+  for (auto itr = _sender2packet_id2start_byte2sdu[sender_id][packet_id].begin(); itr != _sender2packet_id2start_byte2sdu[sender_id][packet_id].end(); itr++) {
+    for (auto jtr = sdus.begin(); jtr != sdus.end(); jtr++) {
+      double diff_start_byte = (*jtr)["start_byte"].get<int>() - itr->second["start_byte"].get<int>();
+      double diff_end_byte = (*jtr)["end_byte"].get<int>() - itr->second["end_byte"].get<int>();
 
-  // ----- decode sdus -----
-  int packet_size = sdu["size"].get<int>();
-  int sdu_total_size = 0;
-  for (auto sdu_ptr = _sender2packet_id2sdus[sender_id][packet_id].begin(); sdu_ptr != _sender2packet_id2sdus[sender_id][packet_id].end(); sdu_ptr++) {
-    // std::cout << __func__ << ": get leftted size" << std::endl;
-    sdu_total_size += (*sdu_ptr)["lefted_size"].get<int>();
+      if (0 <= diff_start_byte && diff_end_byte <= 0) {
+        sdus.erase(jtr);
 
-    if (sdu_total_size < packet_size) {
-      // std::cout << __func__ << ": continue" << std::endl;
-      continue;
+      } else if (diff_start_byte < 0 && diff_end_byte <= 0) {
+        (*jtr)["end_byte"] = itr->second["start_byte"].get<int>();
 
-    } else if (sdu_total_size == packet_size) {
-      // std::cout << __func__ << ": decode" << std::endl;
-      result = (*sdu_ptr);
-      break;
+      } else if (0 <= diff_start_byte && 0 < diff_end_byte) {
+        (*jtr)["start_byte"] = itr->second["end_byte"].get<int>();
 
-    } else {
-      assert(sdu_total_size <= packet_size);
+      } else {
+        json tmp_1 = (*jtr);
+        json tmp_2 = (*jtr);
+
+        tmp_1["end_byte"] = itr->second["start_byte"].get<int>();
+        tmp_2["start_byte"] = itr->second["end_byte"].get<int>();
+
+        sdus.erase(jtr);
+        sdus.push_back(tmp_1);
+        sdus.push_back(tmp_2);
+      }
 
     }
   }
 
-  if (result != NULL) {
-    // std::cout << __func__ << ": clear" << std::endl;
-    _sender2packet_id2sdus[sender_id][packet_id].clear();
+  if (sdus.size() <= 0) {
+    return result;
+
+  } else {
+    for (auto jtr = sdus.begin(); jtr != sdus.end(); jtr++) {
+      _sender2packet_id2start_byte2sdu[sender_id][packet_id][(*jtr)["start_byte"].get<int>()] = (*jtr);
+    }
+
+    if (this->is_decoded(sender_id, packet_id, 0)) {
+      return sdu;
+
+    } else {
+      return result;
+
+    }
   }
+  // for ()
+
+  // ----- old code -----
+  // _sender2packet_id2sdus[sender_id][packet_id].push_back(sdu);
+
+  // ----- decode sdus -----
+  // int packet_size = sdu["size"].get<int>();
+  // int sdu_total_size = 0;
+  // for (auto sdu_ptr = _sender2packet_id2sdus[sender_id][packet_id].begin(); sdu_ptr != _sender2packet_id2sdus[sender_id][packet_id].end(); sdu_ptr++) {
+  //   // std::cout << __func__ << ": get leftted size" << std::endl;
+  //   sdu_total_size += (*sdu_ptr)["lefted_size"].get<int>();
+  //
+  //   if (sdu_total_size < packet_size) {
+  //     // std::cout << __func__ << ": continue" << std::endl;
+  //     continue;
+  //
+  //   } else if (sdu_total_size == packet_size) {
+  //     // std::cout << __func__ << ": decode" << std::endl;
+  //     result = (*sdu_ptr);
+  //     break;
+  //
+  //   } else {
+  //     assert(sdu_total_size <= packet_size);
+  //
+  //   }
+  // }
+  //
+  // if (result != NULL) {
+  //   // std::cout << __func__ << ": clear" << std::endl;
+  //   _sender2packet_id2sdus[sender_id][packet_id].clear();
+  // }
 
   // std::cout << "end: " << __func__ << std::endl;
   return result;
+}
+
+bool VirtualRxSduQueue::is_decoded(std::string sender_id, int packet_id, int start_byte) {
+  if (_sender2packet_id2start_byte2sdu[sender_id][packet_id].find(start_byte) == _sender2packet_id2start_byte2sdu[sender_id][packet_id].end()) {
+    return false;
+
+  } else {
+    if (_sender2packet_id2start_byte2sdu[sender_id][packet_id][start_byte]["end_byte"].get<int>() == _sender2packet_id2start_byte2sdu[sender_id][packet_id][start_byte]["size"].get<int>()) {
+      return true;
+
+    } else {
+      return this->is_decoded(sender_id, packet_id, _sender2packet_id2start_byte2sdu[sender_id][packet_id][start_byte]["end_byte"].get<int>());
+
+    }
+  }
 }
 // ----- End: VirtualRxSduQueue -----
 

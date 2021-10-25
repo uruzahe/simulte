@@ -354,6 +354,7 @@ void Mode4App::SendPacket(std::string payload, std::string type, int payload_byt
     packet["payload"] = payload;
     packet["type"] = type;
     packet["size"] = payload_byte_size;
+    packet["size"] = 750 * 2;
     packet["sender_id"] = sumo_id;
     packet["max_duration"] = 100;
     packet["expired_time"] = simTime().dbl() + 0.1;
