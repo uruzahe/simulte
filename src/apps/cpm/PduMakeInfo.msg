@@ -19,4 +19,5 @@
 packet PduMakeInfo {
     double startTime;
     double rri;
+    double ch;
 }

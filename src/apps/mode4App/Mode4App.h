@@ -155,6 +155,8 @@ protected:
    CAMRecvHandler* _cams_recv_ptr;
    PORecvHandler* _pos_recv_ptr;
 
+   double _current_rri = 0.1;
+   double _current_ch = 1;
    // ----- My Code, End -----
 
 };

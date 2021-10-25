@@ -391,7 +391,7 @@ void Mode4App::syncCarlaVeinsData(cMessage* msg)
 
     SendPacket(packet["payload"].get<std::string>(), "cam", packet["size"].get<int>(), duration_);
 
-    // return;
+    return;
   }
 
   std::vector<json> target_pos = _pos_send_ptr->filter_pos_by_etsi(_pos_ptr->data_between_time(target_start_time, target_end_time));

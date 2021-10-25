@@ -102,6 +102,8 @@ std::vector<json> CAMHandler::filter_cams_by_etsi(std::vector<json> cams)
   double dy = target_cam["HF_Container"]["yaw"].get<double>() - latest_cam["HF_Container"]["yaw"].get<double>();
 
   // ----- ETSI standards -----
+  return {target_cam};
+
   if (0.1 <= dT && (1 <= dT || 4 <= dl || 0.5 <= ds || 4 <= dy)) {
     return {target_cam};
   } else {
@@ -218,6 +220,8 @@ VirtualTxSduQueue::VirtualTxSduQueue()
 
 
   for (auto itr = bytes2channel_num_in_MCS7.begin(); itr != bytes2channel_num_in_MCS7.end(); itr++) {
+    _ch2size[itr->second] = itr->first;
+
     for (auto jtr = possible_rris.begin(); jtr != possible_rris.end(); jtr++) {
       cbr2seize_ch_rri[itr->first / (*jtr)] = {
         {"size", itr->first},
@@ -416,7 +420,7 @@ json VirtualTxSduQueue::generate_PDU(int maximum_byte, double current_time)
 
 
 
-json VirtualTxSduQueue::minimum_Bps(double current_time)
+json VirtualTxSduQueue::minimum_Bps(double current_time, double current_rri, double _current_ch)
 {
   double total_byte = 0;
 

@@ -106,6 +106,7 @@ public:
     {600, 4},
     {750, 5}
   };
+  std::unordered_map<int, int> _ch2size;
   std::map<double, json> cbr2seize_ch_rri;
   std::vector<double> cbrs;
 

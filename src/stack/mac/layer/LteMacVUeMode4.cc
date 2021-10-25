@@ -1098,6 +1098,7 @@ void LteMacVUeMode4::macHandleSps(cPacket* pkt)
     PduMakeInfo* pdu_make_info_pkt = new PduMakeInfo("PduMakeInfo");
     pdu_make_info_pkt->setStartTime(selectedStartTime.dbl());
     pdu_make_info_pkt->setRri(periodCounter_ * SLOT_2_MS);
+    pdu_make_info_pkt->setCh(mode4Grant->getNumSubchannels());
     sendUpperPackets(pdu_make_info_pkt);
     // ----- Begin My Code -----
 
