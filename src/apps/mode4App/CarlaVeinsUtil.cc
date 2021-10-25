@@ -294,7 +294,7 @@ json VirtualTxSduQueue::formatted_pdu(int maximum_size, double current_time) {
 void VirtualTxSduQueue::enque(json packet)
 {
   packet["packet_id"] = _packet_id;
-  
+
   assert(std::find(_priority2packets.begin(), _priority2packets.end(), packet["priority"].get<int>()) != _priority2packets.end());
   _priority2packets[packet["priority"].get<int>()].push_back(packet);
 
@@ -427,9 +427,9 @@ json VirtualTxSduQueue::minimum_Bps(double current_time)
 json VirtualTxSduQueue::Bps2packet_size_and_rri(double minimum_Bps)
 {
   json result;
-  result["size"] = 300;
-  result["rri"] = 1.0;
-  result["ch"] = 1;
+  result["size"] = 750;
+  result["rri"] = 0.02;
+  result["ch"] = 5;
 
 
   for (auto ltr = cbrs.begin(); ltr != cbrs.end(); ltr++) {
