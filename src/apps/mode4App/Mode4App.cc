@@ -202,14 +202,16 @@ void Mode4App::handleLowerMessage(cMessage* msg)
       double start_time = pdu_make_info_pkt->getStartTime();
       double rri = pdu_make_info_pkt->getRri();
 
-      // std::cout << "start_time: " << start_time << ", rri: " << rri << std::endl;
       cancelEvent(selfSender_);
       cancelEvent(_pdu_sender);
 
-      _pdu_interval = ((double) rri) / 1000.0;
+      _pdu_interval = rri / 1000.0;
+      _current_ch = pdu_make_info_pkt->getCh();
+      _current_rri = _pdu_interval.dbl();
 
-      scheduleAt(start_time, selfSender_);
-      scheduleAt(start_time, _pdu_sender);
+      std::cout << "start_time: " << start_time << ", rri: " << _current_rri << std::endl;
+      scheduleAt(start_time + _pdu_interval - TTI, selfSender_);
+      scheduleAt(start_time + _pdu_interval - TTI, _pdu_sender);
     } else {
         // ----- Begin My Code -----
         if (veins::VeinsCarlaPacket* vc_pkt = dynamic_cast<veins::VeinsCarlaPacket*>(msg)) {
@@ -264,13 +266,32 @@ void Mode4App::handleSelfMessage(cMessage* msg)
 
     } else if (!strcmp(msg->getName(), "_pdu_sender")) {
       if (isSduQueueEmpty()) {
-        double minimum_Bps = _sdu_tx_ptr->minimum_Bps(simTime().dbl());
-        if (0 < minimum_Bps) {
-          json pdu_info = _sdu_tx_ptr->Bps2packet_size_and_rri(minimum_Bps);
-          std::cout << pdu_info << std::endl;
-          json pdu = _sdu_tx_ptr->generate_PDU(pdu_info["size"].get<int>(), simTime().dbl());
+        // double minimum_Bps = _sdu_tx_ptr->minimum_Bps(simTime().dbl());
+        // if (0 < minimum_Bps) {
+        //   json pdu_info = _sdu_tx_ptr->Bps2packet_size_and_rri(minimum_Bps);
+        //   std::cout << pdu_info << std::endl;
+        //   json pdu = _sdu_tx_ptr->generate_PDU(pdu_info["size"].get<int>(), simTime().dbl());
+        //
+        //   SendPacket(pdu.dump(), "pdu", pdu["size"].get<int>(), pdu["duration"].get<int>(), pdu_info);
+        // }
 
-          SendPacket(pdu.dump(), "pdu", pdu["size"].get<int>(), pdu["duration"].get<int>(), pdu_info);
+        double maximum_duration = _sdu_tx_ptr->maximum_duration(simTime().dbl());
+        std::cout << __func__ << ", maximum_duration: " << maximum_duration << std::endl;
+        if (maximum_duration <= 0.1) {
+          json pdu_info = _sdu_tx_ptr->get_duration_size_rri(simTime().dbl(), maximum_duration);
+          std::cout << pdu_info << std::endl;
+
+          int pdu_size;
+          if (_current_ch / _current_rri < pdu_info["ch"].get<int>() / pdu_info["rri"].get<double>()) {
+            pdu_size = _sdu_tx_ptr->_ch2size[pdu_info["ch"].get<int>()];
+          } else {
+            pdu_size = _sdu_tx_ptr->_ch2size[_current_ch];
+          }
+          std::cout << __func__ << ", pdu_size" <<  pdu_size << std::endl;
+
+          json pdu = _sdu_tx_ptr->generate_PDU(pdu_size, simTime().dbl());
+          std::cout << __func__ << ", pdu: " << pdu << std::endl;
+          SendPacket(pdu.dump(), "pdu", pdu["size"].get<int>(), pdu["duration"].get<double>(), pdu_info);
         }
       }
 
@@ -354,7 +375,7 @@ void Mode4App::SendPacket(std::string payload, std::string type, int payload_byt
     packet["payload"] = payload;
     packet["type"] = type;
     packet["size"] = payload_byte_size;
-    packet["size"] = 750 * 2;
+    packet["size"] = 800;
     packet["sender_id"] = sumo_id;
     packet["max_duration"] = 100;
     packet["expired_time"] = simTime().dbl() + 0.1;

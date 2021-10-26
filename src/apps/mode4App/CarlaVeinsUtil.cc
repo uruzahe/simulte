@@ -420,7 +420,7 @@ json VirtualTxSduQueue::generate_PDU(int maximum_byte, double current_time)
 
 
 
-json VirtualTxSduQueue::minimum_Bps(double current_time, double current_rri, double _current_ch)
+json VirtualTxSduQueue::minimum_Bps(double current_time)
 {
   double total_byte = 0;
 
@@ -462,6 +462,94 @@ json VirtualTxSduQueue::Bps2packet_size_and_rri(double minimum_Bps)
       result["rri"] =  cbr2seize_ch_rri[(*ltr)]["rri"].get<double>();
       break;
     }
+  }
+
+  return result;
+}
+
+
+double VirtualTxSduQueue::maximum_duration(double current_time) {
+  this->delete_expired_fragments(current_time);
+
+  double result = 10;
+
+  if (_fragment != NULL) {
+    result = min(_fragment["expired_time"].get<double>() - current_time, result);
+  }
+
+  for (auto ptr = _priority2packets.begin(); ptr != _priority2packets.end(); ptr++) {
+    for (auto itr = ptr->second.begin(); itr != ptr->second.end(); itr++) {
+      result = min((*itr)["expired_time"].get<double>() - current_time, result);
+    }
+  }
+
+  return result;
+}
+
+json VirtualTxSduQueue::get_duration_size_rri(double current_time, double maximum_duration) {
+  this->delete_expired_fragments(current_time);
+
+  bool be_found = false;
+  double total_byte = 0;
+  double duration = 0.02;
+  double rri = 0.1;
+  double size = 300;
+
+  double rri_count = 0;
+
+  json result;
+  result["duration"] = maximum_duration;
+  result["size"] = cbr2seize_ch_rri[cbrs.back()]["size"].get<int>();
+  result["ch"] =   cbr2seize_ch_rri[cbrs.back()]["ch"].get<int>();
+  result["rri"] =  cbr2seize_ch_rri[cbrs.back()]["rri"].get<double>();
+
+
+  for (auto ltr = cbrs.begin(); ltr != cbrs.end(); ltr++) {
+    rri =  cbr2seize_ch_rri[(*ltr)]["rri"].get<double>();
+    size = cbr2seize_ch_rri[(*ltr)]["size"].get<int>();
+
+    for (duration = maximum_duration; duration == maximum_duration; duration -= rri) {
+      be_found = true;
+      total_byte = 0;
+
+      if (_fragment != NULL) {
+        total_byte += _fragment["lefted_size"].get<double>();
+        std::cout << __func__ << ", expired" << _fragment["expired_time"].get<double>() << ", current_time: " << current_time << ", duration: " << duration << std::endl;
+        rri_count = (int) ((_fragment["expired_time"].get<double>() - current_time - duration) / rri) + 1;
+
+        std::cout << __func__ << ", total_byte" << total_byte << ", rri_count: " << rri_count << ", size" << size << ", rri" << rri << std::endl;
+        be_found = (total_byte <= rri_count * size);
+      }
+
+      if (be_found == false) { continue; }
+
+      for (auto ptr = _priority2packets.begin(); ptr != _priority2packets.end(); ptr++) {
+        for (auto itr = ptr->second.begin(); itr != ptr->second.end(); itr++) {
+          total_byte += (*itr)["size"].get<double>();
+          std::cout << __func__ << ", expired" << (*itr)["expired_time"].get<double>() << ", current_time: " << current_time << ", duration: " << duration << std::endl;
+          rri_count = (int) (((*itr)["expired_time"].get<double>() - current_time - duration) / rri) + 1;
+
+          std::cout << __func__ << ", total_byte" << total_byte << ", rri_count: " << rri_count << ", size" << size << ", rri" << rri << std::endl;
+          be_found = (total_byte < rri_count * size);
+
+
+          if (be_found == false) { break; }
+        }
+
+        if (be_found == false) { break; }
+      }
+
+      if (be_found) {
+        result["duration"] = duration;
+        result["size"] = cbr2seize_ch_rri[(*ltr)]["size"].get<int>();
+        result["ch"] =   cbr2seize_ch_rri[(*ltr)]["ch"].get<int>();
+        result["rri"] =  cbr2seize_ch_rri[(*ltr)]["rri"].get<double>();
+      } else {
+        continue;
+      }
+    }
+
+    if (be_found) { break; }
   }
 
   return result;

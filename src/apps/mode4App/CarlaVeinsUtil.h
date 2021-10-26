@@ -127,6 +127,10 @@ public:
   json update_fragment(json fragment, int lefted_size, int status_flag, int start_byte, int end_byte);
   json update_pdu_by_fragment(json pdu, double current_time);
   json Bps2packet_size_and_rri(double minimum_Bps);
+
+
+  double maximum_duration(double current_time);
+  json get_duration_size_rri(double current_time, double maximum_duration);
 };
 
 class VirtualRxSduQueue
