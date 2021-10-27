@@ -109,6 +109,8 @@ protected:
    void SendPacket(std::string payload, std::string type, int payload_byte_size, int duration, json pdu_info);
    void SdusHandler(std::vector<json> sdus, double send_time, double recv_time);
    json GeoNetworkHandler();
+   void resource_selection();
+   void removeDataFromQueue();
    // void SduHandler(json sdu);
    void myHandleLowerMessage(std::string payload, std::string type, double send_time, double recv_time);
    virtual void loadCarlaVeinsData(bool read_only);
@@ -157,6 +159,8 @@ protected:
 
    double _current_rri = 0.1;
    double _current_ch = 1;
+
+   cMessage*  _removeDataFromQueue;
    // ----- My Code, End -----
 
 };

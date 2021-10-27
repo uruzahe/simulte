@@ -486,6 +486,19 @@ double VirtualTxSduQueue::maximum_duration(double current_time) {
   return result;
 }
 
+
+bool VirtualTxSduQueue::is_empty(double current_time) {
+  this->delete_expired_fragments(current_time);
+
+  bool result = (_fragment == NULL);
+
+  for (auto ptr = _priority2packets.begin(); ptr != _priority2packets.end(); ptr++) {
+    result = result && ptr->second.empty();
+  }
+
+  return result;
+}
+
 json VirtualTxSduQueue::get_duration_size_rri(double current_time, double maximum_duration) {
   this->delete_expired_fragments(current_time);
 
@@ -508,7 +521,7 @@ json VirtualTxSduQueue::get_duration_size_rri(double current_time, double maximu
     rri =  cbr2seize_ch_rri[(*ltr)]["rri"].get<double>();
     size = cbr2seize_ch_rri[(*ltr)]["size"].get<int>();
 
-    for (duration = maximum_duration; duration == maximum_duration; duration -= rri) {
+    for (duration = maximum_duration; 0 < duration; duration -= rri) {
       be_found = true;
       total_byte = 0;
 

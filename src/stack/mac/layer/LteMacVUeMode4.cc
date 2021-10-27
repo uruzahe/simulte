@@ -659,7 +659,6 @@ void LteMacVUeMode4::handleMessage(cMessage *msg)
             // std::cout << "----- remove old cr -----" << std::endl;
             auto itr = _time2ch_rri.begin();
             while (itr != _time2ch_rri.end()) {
-              // std::cout << __func__ << ": now: " << simTime().dbl() << ", first: " << itr->first << ", size: " << _time2ch_rri.size() << std::endl;
               if (1.0 < simTime().dbl() - itr->first) {
                 itr = _time2ch_rri.erase(itr);
               } else {
@@ -676,6 +675,7 @@ void LteMacVUeMode4::handleMessage(cMessage *msg)
             int max_ch = 1;
             double max_rri = 1.0;
             for (auto itr = _time2ch_rri.begin(); itr != _time2ch_rri.end(); itr++) {
+              std::cout << __func__ << ": now: " << simTime().dbl() << ", first: " << itr->first << ", size: " << _time2ch_rri.size() << std::endl;
               if (max_ch / max_rri < itr->second["ch"].get<int>() / itr->second["rri"].get<double>()) {
                 max_ch = itr->second["ch"].get<int>();
                 max_rri = itr->second["rri"].get<double>();
@@ -683,7 +683,9 @@ void LteMacVUeMode4::handleMessage(cMessage *msg)
             }
 
             // std::cout << "----- set max rri -----" << std::endl;
-            is_required_more_cr = (_my_channel_num / _my_rri < max_ch / max_rri);
+            std::cout << __func__ << ", _my_channel_num: " << _my_channel_num << ", _my_rri: " << _my_rri << ", max_ch: " << max_ch << ", max_rri: " << max_rri << std::endl;
+            std::cout << __func__ << ", " << _my_channel_num / _my_rri << ", " << max_ch / max_rri << std::endl;
+            is_required_more_cr = (int)(_my_channel_num / _my_rri) < (int)(max_ch / max_rri);
             if (schedulingGrant_ == NULL || is_required_more_cr) {
               _my_channel_num = max_ch;
               _my_rri = max_rri;
@@ -695,6 +697,7 @@ void LteMacVUeMode4::handleMessage(cMessage *msg)
             // std::cout << "----- end: set max rri -----" << std::endl;
             // ----- End My Code -----
 
+            std::cout << __func__ << ", schedulingGrant_: " << schedulingGrant_ << ", is_required_more_cr: " << is_required_more_cr << ", periodCounter_ * SLOT_2_MS: " << periodCounter_ * SLOT_2_MS << ", remainingTime_: " << remainingTime_ << std::endl;
             if (schedulingGrant_ == NULL || is_required_more_cr)
             {
                 macGenerateSchedulingGrant(remainingTime_, lteInfo->getPriority());

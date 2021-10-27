@@ -129,6 +129,7 @@ public:
   json Bps2packet_size_and_rri(double minimum_Bps);
 
 
+  bool is_empty(double current_time);
   double maximum_duration(double current_time);
   json get_duration_size_rri(double current_time, double maximum_duration);
 };
