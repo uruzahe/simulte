@@ -373,7 +373,7 @@ void Mode4App::SendPacket(std::string payload, std::string type, int payload_byt
     packet["payload"] = payload;
     packet["type"] = type;
     packet["size"] = payload_byte_size;
-    packet["size"] = 800;
+    // packet["size"] = 800;
     packet["sender_id"] = sumo_id;
     packet["max_duration"] = 100;
     packet["expired_time"] = simTime().dbl() + 0.1;
@@ -410,7 +410,7 @@ void Mode4App::syncCarlaVeinsData(cMessage* msg)
 
     SendPacket(packet["payload"].get<std::string>(), "cam", packet["size"].get<int>(), duration_);
 
-    return;
+    // return;
   }
 
   std::vector<json> target_pos = _pos_send_ptr->filter_pos_by_etsi(_pos_ptr->data_between_time(target_start_time, target_end_time));
@@ -422,7 +422,7 @@ void Mode4App::syncCarlaVeinsData(cMessage* msg)
       SendPacket(packet["payload"].get<std::string>(), "cpm", packet["size"].get<int>(), duration_);
     }
 
-    return;
+    // return;
   }
 
 }

@@ -102,8 +102,6 @@ std::vector<json> CAMHandler::filter_cams_by_etsi(std::vector<json> cams)
   double dy = target_cam["HF_Container"]["yaw"].get<double>() - latest_cam["HF_Container"]["yaw"].get<double>();
 
   // ----- ETSI standards -----
-  return {target_cam};
-
   if (0.1 <= dT && (1 <= dT || 4 <= dl || 0.5 <= ds || 4 <= dy)) {
     return {target_cam};
   } else {
@@ -297,7 +295,7 @@ json VirtualTxSduQueue::update_fragment(json fragment, int lefted_size, int stat
 
 json VirtualTxSduQueue::formatted_pdu(int maximum_size, double current_time) {
   json pdu;
-  pdu["maximum_size"] = maximum_size - MY_PDCP_HEADER_BYTE - MY_RLC_UM_HEADER_BYTE;
+  pdu["maximum_size"] = maximum_size;
   pdu["timestamp"] = current_time;
   pdu["duration"] = 100;
   pdu["size"] = MY_MAC_HEADER_BYTE;
@@ -319,7 +317,7 @@ void VirtualTxSduQueue::enque(json packet)
 }
 
 json VirtualTxSduQueue::update_pdu_by_fragment(json pdu, double current_time) {
-  int lefted_size = pdu["maximum_size"].get<int>() - pdu["size"].get<int>();
+  int lefted_size = pdu["maximum_size"].get<int>() - pdu["size"].get<int>() - MY_RLC_UM_HEADER_BYTE - MY_PDCP_HEADER_BYTE;
 
   if (_fragment != NULL && 0 < lefted_size) {
     if (_fragment["end_byte"].get<int>() - _fragment["start_byte"].get<int>() <= lefted_size) {

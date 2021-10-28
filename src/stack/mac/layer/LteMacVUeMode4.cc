@@ -666,10 +666,7 @@ void LteMacVUeMode4::handleMessage(cMessage *msg)
               }
             }
             // std::cout << "----- push back -----" << std::endl;
-            _time2ch_rri[simTime().dbl()] = (json){
-              {"ch", lteInfo->getMyChannelNum()},
-              {"rri", lteInfo->getMyRri()}
-            };
+            _time2ch_rri[simTime().dbl()] = (json){ {"ch", lteInfo->getMyChannelNum()}, {"rri", lteInfo->getMyRri()} };
 
             // std::cout << "----- find max rri -----" << std::endl;
             int max_ch = 1;
@@ -683,10 +680,17 @@ void LteMacVUeMode4::handleMessage(cMessage *msg)
             }
 
             // std::cout << "----- set max rri -----" << std::endl;
-            std::cout << __func__ << ", _my_channel_num: " << _my_channel_num << ", _my_rri: " << _my_rri << ", max_ch: " << max_ch << ", max_rri: " << max_rri << std::endl;
-            std::cout << __func__ << ", " << _my_channel_num / _my_rri << ", " << max_ch / max_rri << std::endl;
-            is_required_more_cr = (int)(_my_channel_num / _my_rri) < (int)(max_ch / max_rri);
-            if (schedulingGrant_ == NULL || is_required_more_cr) {
+            // std::cout << __func__ << ", _my_channel_num: " << _my_channel_num << ", _my_rri: " << _my_rri << ", max_ch: " << max_ch << ", max_rri: " << max_rri << std::endl;
+            // std::cout << __func__ << ", " << _my_channel_num / _my_rri << ", " << max_ch / max_rri << std::endl;
+
+            if (schedulingGrant_ != NULL) {
+              LteMode4SchedulingGrant* m4G = check_and_cast<LteMode4SchedulingGrant*>(schedulingGrant_);
+              is_required_more_cr = is_required_more_cr || (int)(m4G->getNumSubchannels() / (m4G->getPeriod() * SLOT_2_MS / 100.0)) < (int)(max_ch / max_rri);
+              std::cout << __func__ << ", is_required_more_cr: " << is_required_more_cr << ", current_res: " << (int)(m4G->getNumSubchannels() / (m4G->getPeriod() * SLOT_2_MS / 100.0)) << ", max: " << (int)(max_ch / max_rri) << std::endl;
+            }
+
+            is_required_more_cr = is_required_more_cr || (schedulingGrant_ == NULL);
+            if (is_required_more_cr) {
               _my_channel_num = max_ch;
               _my_rri = max_rri;
 
