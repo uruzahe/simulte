@@ -106,6 +106,7 @@ void Mode4App::initialize(int stage)
 
         // ----- Virtual Network Layer -----
         _network_ptr = new VirtualGeoNetwork;
+        _cbf_resend = new cMessage("_cbf_resend");
 
         // ----- Virtual Access Layer Queue -----
         _sdu_tx_ptr = new VirtualTxSduQueue;
@@ -136,6 +137,120 @@ void Mode4App::initialize(int stage)
 }
 
 
+void Mode4App::StachSendPDU() {
+  if (isSduQueueEmpty() && _sdu_tx_ptr->is_empty(simTime().dbl()) == false) {
+    int pdu_size = _sdu_tx_ptr->_ch2size[_current_ch];
+    json pdu = _sdu_tx_ptr->generate_PDU(pdu_size, simTime().dbl());
+    json pdu_info = {{"ch", _current_ch}, {"rri", _current_rri}};
+
+    std::cout << __func__ << ", pdu: " << pdu << std::endl;
+    std::cout << __func__ << ", now: " << simTime() << ", pdu_time: " << _pdu_sender->getArrivalTime() << std::endl;
+    SendPacket(pdu.dump(), "pdu", pdu["size"].get<int>(), pdu["duration"].get<double>(), pdu_info);
+  }
+}
+
+json Mode4App::attach_headers(json packet, json geocast_header={}, json rlc_header={}) {
+  // std::cout << packet << std::endl;
+  // std::cout << geocast_header << std::endl;
+  // std::cout << rlc_header << std::endl;
+
+  packet["geocast"] = geocast_header["geocast"];
+  packet["rlc"] = rlc_header["rlc"];
+  // packet.merge_patch(geocast_header);
+  // packet.merge_patch(rlc_header);
+
+  return packet;
+}
+
+json Mode4App::FacilityHandler (std::string cmd, json packet={}) {
+  json result = {};
+
+  if (cmd == "FromGeocast") {
+    return packet;
+
+  } else if (cmd == "ToGeocast") {
+    return this->GeoNetworkHandler("FromApp", packet);
+
+  } else {
+    throw cRuntimeError("Unknown cmd");
+  }
+
+  return result;
+}
+
+
+json Mode4App::GeoNetworkHandler (std::string cmd, json packet={}) {
+  json result = {};
+
+  if (cmd == "FromApp") {
+    return this->RlcHandler("FromGeocast", _network_ptr->enque(packet));
+
+  } else if (cmd == "FromRlc") {
+    _network_ptr->enque(packet);
+
+    double resend_time = _network_ptr->CBF_resend_time(packet, mobility->getCurrentPosition(), simTime().dbl());
+    std::cout << __func__ << ", resend_time: " << resend_time << ", packet: " << packet << std::endl;
+
+    if (simTime().dbl() < resend_time) {
+      _network_ptr->resend_enque(resend_time, packet);
+
+      _network_ptr->_resend_times.push_back(resend_time);
+      std::sort(_network_ptr->_resend_times.begin(), _network_ptr->_resend_times.end(), std::greater<double>{});
+      std::unique(_network_ptr->_resend_times.begin(), _network_ptr->_resend_times.end());
+
+      this->GeoNetworkHandler("ReSendSchedule", {});
+    }
+
+    return this->FacilityHandler("FromGeocast", packet);
+
+  } else if (cmd == "ReSend") {
+    std::vector<json> resend_packets = _network_ptr->resend_deque(simTime().dbl());
+
+    std::cout << __func__ << ", ReSend Start." << std::endl;
+    for (auto itr = resend_packets.begin(); itr != resend_packets.end(); itr++) {
+      std::cout << __func__ << ", ReSend." << std::endl;
+      this->RlcHandler("FromGeocast", _network_ptr->enque(_network_ptr->update_header(*itr, mobility->getCurrentPosition())));
+    }
+    std::cout << __func__ << ", ReSend End." << std::endl;
+
+    resource_selection();
+    this->GeoNetworkHandler("ReSendSchedule", {});
+
+  } else if (cmd == "ReSendSchedule") {
+    if (0 < _network_ptr->_resend_times.size()) {
+      cancelEvent(_cbf_resend);
+      scheduleAt(_network_ptr->_resend_times.back(), _cbf_resend);
+      _network_ptr->_resend_times.pop_back();
+    }
+  } else {
+    throw cRuntimeError("Unknown cmd");
+
+  }
+
+  return result;
+}
+
+json Mode4App::RlcHandler (std::string cmd, json packet={}) {
+  json result = {};
+
+  if (cmd == "FromGeocast") {
+    _sdu_tx_ptr->enque(packet);
+
+  } else if (cmd == "ToGeocast") {
+    return this->GeoNetworkHandler("FromRlc", packet);
+
+  } else if (cmd == "FromPhy") {
+
+  } else if (cmd == "ToPhy") {
+    this->StachSendPDU();
+
+  } else {
+    throw cRuntimeError("Unknown cmd");
+  }
+
+  return result;
+}
+
 void Mode4App::SdusHandler(std::vector<json> sdus, double send_time, double recv_time)
 {
   // std::cout << "begin: " << __func__ << std::endl;
@@ -147,12 +262,15 @@ void Mode4App::SdusHandler(std::vector<json> sdus, double send_time, double recv
 
     if (status_flag == 11) {
       myHandleLowerMessage((*itr)["payload"].get<std::string>(), (*itr)["type"].get<std::string>(), send_time, recv_time);
+      this->RlcHandler("ToGeocast", (*itr));
 
     } else {
       json packet = _sdu_rx_ptr->enque_and_decode((*itr));
 
       if (packet != NULL) {
         myHandleLowerMessage(packet["payload"].get<std::string>(), packet["type"].get<std::string>(), send_time, recv_time);
+        this->RlcHandler("ToGeocast", packet);
+
       }
     }
   }
@@ -259,32 +377,28 @@ void Mode4App::handleSelfMessage(cMessage* msg)
             packet->setControlInfo(lteControlInfo);
 
             Mode4BaseApp::sendLowerPackets(packet);
+
         } else {
-            syncCarlaVeinsData(msg);
-            resource_selection();
+          syncCarlaVeinsData(msg);
+          resource_selection();
         }
+
         emit(sentMsg_, (long)1);
         scheduleAt(simTime() + period_, selfSender_);
 
     } else if (!strcmp(msg->getName(), "_pdu_sender")) {
-      if (isSduQueueEmpty() && _sdu_tx_ptr->is_empty(simTime().dbl()) == false) {
-          int pdu_size = _sdu_tx_ptr->_ch2size[_current_ch];
-          json pdu = _sdu_tx_ptr->generate_PDU(pdu_size, simTime().dbl());
-          json pdu_info = {{"ch", _current_ch}, {"rri", _current_rri}};
-
-          std::cout << __func__ << ", pdu: " << pdu << std::endl;
-          std::cout << __func__ << ", now: " << simTime() << ", pdu_time: " << _pdu_sender->getArrivalTime() << std::endl;
-          SendPacket(pdu.dump(), "pdu", pdu["size"].get<int>(), pdu["duration"].get<double>(), pdu_info);
-      }
-
+      this->RlcHandler("ToPhy");
       _pdu_sender->setSchedulingPriority(0);
       scheduleAt(simTime() + _pdu_interval, _pdu_sender);
 
     }
     else if (!strcmp(msg->getName(), "_removeDataFromQueue")) {
       removeDataFromQueue();
-    }
-    else {
+
+    } else if (!strcmp(msg->getName(), "_cbf_resend")) {
+      this->GeoNetworkHandler("ReSend", {});
+
+    } else {
       throw cRuntimeError("Mode4App::handleMessage - Unrecognized self message");
     }
 }
@@ -376,6 +490,7 @@ void Mode4App::SendPacket(std::string payload, std::string type, int payload_byt
     // packet["size"] = 800;
     packet["sender_id"] = sumo_id;
     packet["max_duration"] = 100;
+    packet["min_duration"] = 20; // For ensuring grant in Mac layer.
     packet["expired_time"] = simTime().dbl() + 0.1;
 
     if (type == "cam") {
@@ -386,7 +501,31 @@ void Mode4App::SendPacket(std::string payload, std::string type, int payload_byt
       assert(type == "cam" || type == "cpm");
     }
 
-    _sdu_tx_ptr->enque(packet);
+    // this->StachSendEnque(packet);
+    inet::Coord CurrentPos = mobility->getCurrentPosition();
+    double target_dist = 1000;
+    if (CurrentPos.x <= 0) {
+      target_dist = 1000;
+    } else {
+      target_dist = -1000;
+    }
+
+    this->FacilityHandler(
+      "ToGeocast",
+      this->attach_headers(
+        packet,
+        _network_ptr->header(
+          CurrentPos.x,
+          CurrentPos.y,
+          CurrentPos.x + target_dist,
+          CurrentPos.y,
+          2,
+          packet["expired_time"].get<double>(),
+          this->sumo_id
+        ),
+        _sdu_tx_ptr->header()
+      )
+    );
 
     // ----
   } else {

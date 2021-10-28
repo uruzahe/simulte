@@ -111,6 +111,13 @@ protected:
    json GeoNetworkHandler();
    void resource_selection();
    void removeDataFromQueue();
+   void StachSendPDU();
+
+   json attach_headers(json packet, json geocast_header, json rlc_header);
+   json FacilityHandler (std::string cmd, json packet);
+   json GeoNetworkHandler (std::string cmd, json packet);
+   json RlcHandler (std::string cmd, json packet);
+
    // void SduHandler(json sdu);
    void myHandleLowerMessage(std::string payload, std::string type, double send_time, double recv_time);
    virtual void loadCarlaVeinsData(bool read_only);
@@ -134,6 +141,8 @@ protected:
    // Therefore, we have to generate packets when SDU queue is empty.
    std::vector<std::string> appQueue;
    VirtualGeoNetwork* _network_ptr;
+   cMessage* _cbf_resend;
+
    VirtualTxSduQueue* _sdu_tx_ptr;
    VirtualRxSduQueue* _sdu_rx_ptr;
    simtime_t _pdu_interval;

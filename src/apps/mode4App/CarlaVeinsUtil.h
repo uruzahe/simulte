@@ -116,6 +116,8 @@ public:
 
   VirtualTxSduQueue();
 
+  json header();
+
   json add_fragment_into_pdu(json pdu, json send_fragment, double current_time);
   void delete_expired_fragments(double current_time);
   void enque(json packet);
@@ -144,7 +146,7 @@ public:
   bool is_decoded(std::string sender_id, int packet_id, int start_byte);
 };
 
-class VirtualGeoNetwork : public JsonDataStore
+class VirtualGeoNetwork
 {
 public:
   int _itsGnMaxSduSize;
@@ -152,7 +154,27 @@ public:
   int _itsGnMinPacketRepetitionInterval;
   int _itsGnMaxGeoAreaSize;
 
-  void enque();
+  int _packet_id = 0;
+  std::unordered_map<std::string, std::unordered_map<int, json>> _sender_id2packet_id2packet;
+  std::unordered_map<std::string, std::unordered_map<int, int>> _sender_id2packet_id2packet_count;
+  std::unordered_map<double, std::vector<json>> _resend_time2packets;
+  std::vector<double> _resend_times;
+
+  double _TO_CBF_MIN = TTI;
+  double _TO_CBF_MAX = 0.1;
+  double _DIST_MAX = 400;
+
+  json header(double sender_pos_x, double sender_pos_y, double dest_pos_x, double dest_pos_y, double hop_limit, double expired_time, std::string sender_id);
+  json update_header(json packet, inet::Coord sender_coord);
+  void delete_old_packet(std::string sender_id, double current_time);
+  bool is_already_received(json packet);
+  bool is_resend(json packet);
+  json enque(json packet);
+  double CBF_resend_time(json packet, inet::Coord recver_pos, double current_time);
+  void resend_enque(double resend_time, json packet);
+  std::vector<json> resend_deque(double resend_time);
+
+  std::unordered_map<double, std::vector<json>> time2resend_packets;
   std::vector<json> deque();
 };
 
@@ -190,3 +212,5 @@ void set_cpm_payloads_for_carla(std::string sumo_id, std::string data_sync_dir, 
 std::vector<std::string> get_cpm_payloads_from_carla(std::string sumo_id, std::string data_sync_dir, bool read_only);
 
 template <class X> X min(X v1, X v2);
+
+template <class X> X max(X v1, X v2);

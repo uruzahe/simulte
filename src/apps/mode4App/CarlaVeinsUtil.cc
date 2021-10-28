@@ -237,6 +237,15 @@ VirtualTxSduQueue::VirtualTxSduQueue()
   _max_rri =  cbr2seize_ch_rri[cbrs.back()]["rri"].get<double>();
 }
 
+
+json VirtualTxSduQueue::header() {
+  json header;
+
+  header["rlc"] = {};
+
+  return header;
+}
+
 void VirtualTxSduQueue::delete_expired_fragments(double current_time)
 {
 
@@ -368,7 +377,13 @@ json VirtualTxSduQueue::add_fragment_into_pdu(json pdu, json send_fragment, doub
     sdus = pdu["sdus"].get<std::vector<json>>();
   }
 
-  double tmp_duration = min((send_fragment["expired_time"].get<double>() - current_time) * 1000.0, send_fragment["max_duration"].get<double>());
+  double tmp_duration = max(
+    send_fragment["min_duration"].get<double>(),
+    min(
+      (send_fragment["expired_time"].get<double>() - current_time) * 1000.0,
+      send_fragment["max_duration"].get<double>()
+    )
+  );
   if (sdus.size() == 0 || tmp_duration < pdu["duration"].get<int>()) {
     pdu["duration"] = (int)(tmp_duration + 1);
   }
@@ -623,39 +638,7 @@ json VirtualRxSduQueue::enque_and_decode(json sdu)
 
     }
   }
-  // for ()
 
-  // ----- old code -----
-  // _sender2packet_id2sdus[sender_id][packet_id].push_back(sdu);
-
-  // ----- decode sdus -----
-  // int packet_size = sdu["size"].get<int>();
-  // int sdu_total_size = 0;
-  // for (auto sdu_ptr = _sender2packet_id2sdus[sender_id][packet_id].begin(); sdu_ptr != _sender2packet_id2sdus[sender_id][packet_id].end(); sdu_ptr++) {
-  //   // std::cout << __func__ << ": get leftted size" << std::endl;
-  //   sdu_total_size += (*sdu_ptr)["lefted_size"].get<int>();
-  //
-  //   if (sdu_total_size < packet_size) {
-  //     // std::cout << __func__ << ": continue" << std::endl;
-  //     continue;
-  //
-  //   } else if (sdu_total_size == packet_size) {
-  //     // std::cout << __func__ << ": decode" << std::endl;
-  //     result = (*sdu_ptr);
-  //     break;
-  //
-  //   } else {
-  //     assert(sdu_total_size <= packet_size);
-  //
-  //   }
-  // }
-  //
-  // if (result != NULL) {
-  //   // std::cout << __func__ << ": clear" << std::endl;
-  //   _sender2packet_id2sdus[sender_id][packet_id].clear();
-  // }
-
-  // std::cout << "end: " << __func__ << std::endl;
   return result;
 }
 
@@ -674,6 +657,173 @@ bool VirtualRxSduQueue::is_decoded(std::string sender_id, int packet_id, int sta
   }
 }
 // ----- End: VirtualRxSduQueue -----
+
+// ----- Begin: VirtualGeoNetwork -----
+json VirtualGeoNetwork::header(double sender_pos_x, double sender_pos_y, double dest_pos_x, double dest_pos_y, double hop_limit, double expired_time, std::string sender_id) {
+  json header;
+
+  header["geocast"] = {
+    {"sender_id", sender_id},
+    {"packet_id", _packet_id},
+    {"sender_pos_x", sender_pos_x},
+    {"sender_pos_y", sender_pos_y},
+    {"dest_pos_x", dest_pos_x},
+    {"dest_pos_y", dest_pos_y},
+    {"hop_limit", hop_limit},
+    {"expired_time", expired_time}
+  };
+
+  _packet_id++;
+  return header;
+}
+
+json VirtualGeoNetwork::update_header(json packet, inet::Coord sender_coord) {
+  packet["geocast"]["sender_pos_x"] = sender_coord.x;
+  packet["geocast"]["sender_pos_y"] = sender_coord.y;
+
+  return packet;
+}
+
+
+json VirtualGeoNetwork::enque(json packet) {
+  packet["geocast"]["hop_limit"] = packet["geocast"]["hop_limit"].get<int>() - 1;
+
+  std::string sender_id = packet["geocast"]["sender_id"].get<std::string>();
+  int packet_id = packet["geocast"]["packet_id"].get<int>();
+
+  if (this->is_already_received(packet)) {
+    _sender_id2packet_id2packet_count[sender_id][packet_id]++;
+  } else {
+    _sender_id2packet_id2packet_count[sender_id][packet_id] = 1;
+  }
+
+  _sender_id2packet_id2packet[sender_id][packet_id] = packet;
+
+  return packet;
+}
+
+void VirtualGeoNetwork::delete_old_packet(std::string sender_id, double current_time) {
+  std::cout << __func__ << std::endl;
+
+  auto itr = _sender_id2packet_id2packet[sender_id].begin();
+  while (itr != _sender_id2packet_id2packet[sender_id].end()) {
+    if (itr->second["expired_time"].get<double>() < current_time) {
+      _sender_id2packet_id2packet[sender_id].erase(itr);
+    } else {
+      continue;
+    }
+  }
+}
+
+bool VirtualGeoNetwork::is_already_received(json packet) {
+  std::string sender_id = packet["geocast"]["sender_id"].get<std::string>();
+  int packet_id = packet["geocast"]["packet_id"].get<int>();
+
+  if (_sender_id2packet_id2packet.find(sender_id) !=  _sender_id2packet_id2packet.end() && _sender_id2packet_id2packet[sender_id].find(packet_id) != _sender_id2packet_id2packet[sender_id].end()) {
+    return true;
+  } else {
+    return false;
+  }
+}
+
+double VirtualGeoNetwork::CBF_resend_time(json packet, inet::Coord recver_pos, double current_time) {
+  std::cout << __func__ << ", packet" << std::endl;
+
+  double resend_time = -1;
+
+  // this->delete_old_packet(packet["geocast"]["sender_id"].get<std::string>(), current_time);
+
+  // ----- validation hop limit -----
+  std::cout << __func__ << ", packet" << std::endl;
+  if (packet["geocast"]["hop_limit"].get<int>() <= 0) {
+    return resend_time;
+  }
+
+  // ----- validation duplication receive -----
+  std::cout << __func__ << ", packet" << std::endl;
+  if (!this->is_resend(packet)) {
+    return resend_time;
+  }
+
+  // ----- validation angle (60) -----
+  std::cout << __func__ << ", packet" << std::endl;
+  double recver_pos_x = recver_pos.x;
+  double recver_pos_y = recver_pos.y;
+  double sender_pos_x = packet["geocast"]["sender_pos_x"].get<double>();
+  double sender_pos_y = packet["geocast"]["sender_pos_y"].get<double>();
+  double dest_pos_x = packet["geocast"]["dest_pos_x"].get<double>();
+  double dest_pos_y = packet["geocast"]["dest_pos_y"].get<double>();
+
+  double diff_sender_dest_x = dest_pos_x - sender_pos_x;
+  double diff_sender_dest_y = dest_pos_y - sender_pos_y;
+  double diff_sender_recver_x = recver_pos_x - sender_pos_x;
+  double diff_sender_recver_y = recver_pos_y - sender_pos_y;
+
+  double dist_sender_dest = sqrt(diff_sender_dest_x * diff_sender_dest_x + diff_sender_dest_y * diff_sender_dest_y);
+  double dist_sender_recver = sqrt(diff_sender_recver_x * diff_sender_recver_x + diff_sender_recver_y * diff_sender_recver_y);
+
+  double cos_angle = (diff_sender_dest_x * diff_sender_recver_x + diff_sender_dest_y * diff_sender_recver_y) / (dist_sender_dest * dist_sender_recver);
+
+  std::cout << __func__ << ", cos_angle: " << cos_angle << std::endl;
+  if (cos_angle < 0.5) {
+    return resend_time;
+  }
+
+  double TO_CBF_GUC;
+  if (dist_sender_recver <= _DIST_MAX) {
+    TO_CBF_GUC = _TO_CBF_MAX + (_TO_CBF_MIN - _TO_CBF_MAX) / (dist_sender_recver / _DIST_MAX);
+  } else {
+    TO_CBF_GUC = _TO_CBF_MIN;
+  }
+
+  // ----- validation expired_time -----
+  std::cout << __func__ << ", packet" << std::endl;
+  if (packet["geocast"]["expired_time"].get<double>() < current_time + TO_CBF_GUC) {
+    return resend_time;
+  }
+
+  resend_time = current_time + TO_CBF_GUC;
+
+  return resend_time;
+}
+
+
+void VirtualGeoNetwork::resend_enque(double resend_time, json packet) {
+  if (_resend_time2packets.find(resend_time) == _resend_time2packets.end()) {
+    _resend_time2packets[resend_time] = {};
+  }
+
+  _resend_time2packets[resend_time].push_back(packet);
+}
+
+bool VirtualGeoNetwork::is_resend(json packet) {
+  std::string sender_id = packet["geocast"]["sender_id"].get<std::string>();
+  int packet_id = packet["geocast"]["packet_id"].get<int>();
+
+  if (2 <= _sender_id2packet_id2packet_count[sender_id][packet_id]) {
+    return false;
+  } else {
+    return true;
+  }
+}
+
+
+std::vector<json> VirtualGeoNetwork::resend_deque(double resend_time) {
+  std::vector<json> packets;
+
+  for (auto itr = _resend_time2packets[resend_time].begin(); itr != _resend_time2packets[resend_time].end(); itr++) {
+    if (!this->is_resend(*itr)) {
+      continue;
+    } else {
+      packets.push_back(*itr);
+    }
+  }
+
+  _resend_time2packets.erase(resend_time);
+
+  return packets;
+}
+// ----- End: VirtualGeoNetwork -----
 
 // ----- Begin: function -----
 std::string cams_json_file_path(std::string data_sync_dir, std::string sumo_id)
@@ -831,6 +981,14 @@ std::vector<std::string> get_cpm_payloads_from_carla(std::string sumo_id, std::s
 
 template <class X> X min(X v1, X v2) {
   if (v1 <= v2) {
+    return v1;
+  } else {
+    return v2;
+  }
+}
+
+template <class X> X max(X v1, X v2) {
+  if (v1 >= v2) {
     return v1;
   } else {
     return v2;
