@@ -563,6 +563,12 @@ void LtePhyVUeMode4::computeCSRs(LteMode4SchedulingGrant* &grant) {
     // Start and end of Selection Window.
     int minSelectionIndex = sensingWindowLength + selectionWindowStartingSubframe_;
     int maxSelectionIndex = sensingWindowLength + maxLatency;
+    // ----- Begin My Code -----
+    if (maxSelectionIndex < minSelectionIndex) {
+      maxSelectionIndex = minSelectionIndex;
+    }
+    ASSERT(minSelectionIndex <= maxSelectionIndex);
+    // ----- End My Code -----
 
     int totalPossibleCSRs = ((maxSelectionIndex - minSelectionIndex) * numSubchannels_) / grantLength;
 
@@ -890,9 +896,12 @@ void LtePhyVUeMode4::computeCSRs(LteMode4SchedulingGrant* &grant) {
         optimalCSRs = orderedCSRs;
     }
 
+    // std::cout << __func__ << ", " << simTime() << ", CSRs size: " << optimalCSRs.size() << std::endl;
+
     // Send the packet up to the MAC layer where it will choose the CSR and the retransmission if that is specified
     // Need to generate the message that is to be sent to the upper layers.
     SpsCandidateResources* candidateResourcesMessage = new SpsCandidateResources("CSRs");
+    ASSERT(0 < optimalCSRs.size());
     candidateResourcesMessage->setCSRs(optimalCSRs);
     send(candidateResourcesMessage, upperGateOut_);
 }
@@ -1432,6 +1441,7 @@ void LtePhyVUeMode4::decodeAirFrame(LteAirFrame* frame, UserControlInfo* lteInfo
 
                 std::vector <Subchannel *> currentSubframe = sensingWindow_[sensingWindowFront_];
                 for (int i = subchannelIndex; i < subchannelIndex + lengthInSubchannels; i++) {
+                    std::cout << __func__ << ", " << simTime() << ", subchannelIndex: " << i << ", lengthInSubchannels: " << lengthInSubchannels << std::endl;
                     Subchannel *currentSubchannel = currentSubframe[i];
                     std::vector<Band>::iterator lt;
                     std::vector <Band> allocatedBands = currentSubchannel->getOccupiedBands();
@@ -1443,6 +1453,7 @@ void LtePhyVUeMode4::decodeAirFrame(LteAirFrame* frame, UserControlInfo* lteInfo
                         for (mt = usedRbs.begin(); mt != usedRbs.end(); ++mt) {
                             //for each logical band used to transmit the packet
                             for (nt = mt->second.begin(); nt != mt->second.end(); ++nt) {
+                                std::cout << __func__ << ", " << simTime() << ", nt->first: " << nt->first << ", *lt" << *lt << std::endl;
                                 if (nt->first == *lt) {
                                     currentSubchannel->addRsrpValue(rsrpVector[(*lt)], (*lt));
                                     currentSubchannel->addRssiValue(rssiVector[(*lt)], (*lt));
@@ -1512,9 +1523,9 @@ std::tuple<int,int> LtePhyVUeMode4::decodeRivValue(SidelinkControlInformation* s
     bool bandNotFound = true;
 
     it = rbMap.begin();
-
     while (it != rbMap.end() && bandNotFound )
     {
+        std::cout << __func__ << ", rb size: " << it->second.size() << std::endl; 
         for (jt = it->second.begin(); jt != it->second.end(); ++jt)
         {
             Band band = jt->first;
@@ -1526,6 +1537,8 @@ std::tuple<int,int> LtePhyVUeMode4::decodeRivValue(SidelinkControlInformation* s
             }
         }
     }
+
+    std::cout << __func__ << ", " << simTime() << ", rbMap size: " << rbMap.size() << ", startingBand: " << startingBand << std::endl;
 
     // Get RIV first as this is common
     unsigned int RIV = sci->getFrequencyResourceLocation();
@@ -1591,9 +1604,11 @@ void LtePhyVUeMode4::updateCBR()
         }
         std::vector<Subchannel *>::iterator it;
         std::vector <Subchannel *> currentSubframe = sensingWindow_[cbrIndex];
+        // std::cout << "-----" << std::endl;
         for (it = currentSubframe.begin(); it != currentSubframe.end(); it++) {
             if ((*it)->getSensed()) {
                 totalSubchannels++;
+                // std::cout << "getAverageRSSI: " <<  (*it)->getAverageRSSI() << std::endl;
                 if ((*it)->getAverageRSSI() > thresholdRSSI_) {
                     cbrValue++;
                 }
@@ -1603,6 +1618,7 @@ void LtePhyVUeMode4::updateCBR()
         cbrCount --;
     }
 
+    std::cout << __func__ << ", " << simTime() << ", totalSubchannels: " << totalSubchannels << ", cbrValue: " << cbrValue << std::endl;
     cbrValue = cbrValue / totalSubchannels;
 
     emit(cbr, cbrValue);

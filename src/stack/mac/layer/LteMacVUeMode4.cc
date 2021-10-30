@@ -648,10 +648,20 @@ void LteMacVUeMode4::handleMessage(cMessage *msg)
             FlowControlInfoNonIp* lteInfo = check_and_cast<FlowControlInfoNonIp*>(pkt->removeControlInfo());
             receivedTime_ = NOW;
             simtime_t elapsedTime = receivedTime_ - lteInfo->getCreationTime();
-            simtime_t duration = SimTime(lteInfo->getDuration(), SIMTIME_MS);
+            // ----- Begin Modification -----
+            // ----- Original Code -----
+            // simtime_t duration = SimTime(lteInfo->getDuration(), SIMTIME_MS);
+            // duration = duration - elapsedTime;
+            // double dur = duration.dbl();
+            // remainingTime_ = lteInfo->getDuration() - dur;
+            // ----- My Code -----
+            simtime_t duration = SimTime(lteInfo->getDuration() / 1000.);
             duration = duration - elapsedTime;
             double dur = duration.dbl();
             remainingTime_ = lteInfo->getDuration() - dur;
+            // ----- End Modification -----
+
+            // std::cout << __func__ << ", " << simTime() << ", getDuration: " << lteInfo->getDuration() << ", receivedTime_: " <<receivedTime_ << ", elapsedTime: " << elapsedTime << ", duration: " << duration << ", dur: " << dur << std::endl;
 
             // ----- Begin My Code -----
             bool is_required_more_cr = false;
@@ -665,19 +675,37 @@ void LteMacVUeMode4::handleMessage(cMessage *msg)
                 break;
               }
             }
-            // std::cout << "----- push back -----" << std::endl;
-            _time2ch_rri[simTime().dbl()] = (json){ {"ch", lteInfo->getMyChannelNum()}, {"rri", lteInfo->getMyRri()} };
+
+
+            // ----- If the resource is too few compared with max resource, clear the _time2ch_rri -----
+
+
 
             // std::cout << "----- find max rri -----" << std::endl;
             int max_ch = 1;
             double max_rri = 1.0;
             for (auto itr = _time2ch_rri.begin(); itr != _time2ch_rri.end(); itr++) {
-              std::cout << __func__ << ": now: " << simTime().dbl() << ", first: " << itr->first << ", size: " << _time2ch_rri.size() << std::endl;
+              // std::cout << __func__ << ": now: " << simTime().dbl() << ", first: " << itr->first << ", size: " << _time2ch_rri.size() << std::endl;
               if (max_ch / max_rri < itr->second["ch"].get<int>() / itr->second["rri"].get<double>()) {
                 max_ch = itr->second["ch"].get<int>();
                 max_rri = itr->second["rri"].get<double>();
               }
             }
+
+            int required_res = lteInfo->getMyChannelNum() / lteInfo->getMyRri();
+            if (max_ch / max_rri < required_res) {
+              max_ch = lteInfo->getMyChannelNum();
+              max_rri = lteInfo->getMyRri();
+            } else if (max_ch / max_rri < required_res + max_ch){
+              // ----- do nothing -----
+            } else {
+              max_ch = lteInfo->getMyChannelNum();
+              max_rri = lteInfo->getMyRri();
+              _time2ch_rri.clear();
+            }
+            _time2ch_rri[simTime().dbl()] = (json){ {"ch", lteInfo->getMyChannelNum()}, {"rri", lteInfo->getMyRri()} };
+
+
 
             // std::cout << "----- set max rri -----" << std::endl;
             // std::cout << __func__ << ", _my_channel_num: " << _my_channel_num << ", _my_rri: " << _my_rri << ", max_ch: " << max_ch << ", max_rri: " << max_rri << std::endl;
@@ -685,8 +713,15 @@ void LteMacVUeMode4::handleMessage(cMessage *msg)
 
             if (schedulingGrant_ != NULL) {
               LteMode4SchedulingGrant* m4G = check_and_cast<LteMode4SchedulingGrant*>(schedulingGrant_);
+              std::cout << __func__ << ", " << simTime() << ", current_res: " << (int)(m4G->getNumSubchannels() / (m4G->getPeriod() * SLOT_2_MS / 100.0)) << ", this: " << max_ch / max_rri << std::endl;
+
+              double tmp = itr->second["rri"].get<double>();
+              // if (!(tmp == 1.0 || tmp == 0.2 || tmp == 0.5)) {
+              //   std::cout << __func__ << ", " << simTime() << "invalid rri: " << itr->second["rri"].get<double>() << std::endl;
+              //   throw cRuntimeError("invalid rri");
+              // }
               is_required_more_cr = is_required_more_cr || (int)(m4G->getNumSubchannels() / (m4G->getPeriod() * SLOT_2_MS / 100.0)) < (int)(max_ch / max_rri);
-              std::cout << __func__ << ", is_required_more_cr: " << is_required_more_cr << ", current_res: " << (int)(m4G->getNumSubchannels() / (m4G->getPeriod() * SLOT_2_MS / 100.0)) << ", max: " << (int)(max_ch / max_rri) << std::endl;
+              // std::cout << __func__ << ", is_required_more_cr: " << is_required_more_cr << ", current_res: " << (int)(m4G->getNumSubchannels() / (m4G->getPeriod() * SLOT_2_MS / 100.0)) << ", max: " << (int)(max_ch / max_rri) << std::endl;
             }
 
             is_required_more_cr = is_required_more_cr || (schedulingGrant_ == NULL);
@@ -694,14 +729,14 @@ void LteMacVUeMode4::handleMessage(cMessage *msg)
               _my_channel_num = max_ch;
               _my_rri = max_rri;
 
-              assert(1 <= _my_channel_num && _my_channel_num <= 5);
-              assert(validResourceReservationIntervals_.find(_my_rri) != validResourceReservationIntervals_.end());
+              ASSERT(1 <= _my_channel_num && _my_channel_num <= 5);
+              ASSERT(validResourceReservationIntervals_.find(_my_rri) != validResourceReservationIntervals_.end());
             }
 
             // std::cout << "----- end: set max rri -----" << std::endl;
             // ----- End My Code -----
 
-            std::cout << __func__ << ", schedulingGrant_: " << schedulingGrant_ << ", is_required_more_cr: " << is_required_more_cr << ", periodCounter_ * SLOT_2_MS: " << periodCounter_ * SLOT_2_MS << ", remainingTime_: " << remainingTime_ << std::endl;
+            // std::cout << __func__ << ", " << simTime() << ", schedulingGrant_: " << schedulingGrant_ << ", is_required_more_cr: " << is_required_more_cr << ", periodCounter_ * SLOT_2_MS: " << periodCounter_ * SLOT_2_MS << ", remainingTime_: " << remainingTime_ << std::endl;
             if (schedulingGrant_ == NULL || is_required_more_cr)
             {
                 macGenerateSchedulingGrant(remainingTime_, lteInfo->getPriority());
@@ -997,10 +1032,24 @@ void LteMacVUeMode4::macHandleSps(cPacket* pkt)
      * 3. Assign the CR
      * 4. return
      */
+
+    // std::cout << __func__ << ", " << simTime() << "CSRs is 0 Begin." << std::endl;
     SpsCandidateResources* candidatesPacket = check_and_cast<SpsCandidateResources *>(pkt);
     std::vector<std::tuple<double, int, int>> CSRs = candidatesPacket->getCSRs();
 
     LteMode4SchedulingGrant* mode4Grant = check_and_cast<LteMode4SchedulingGrant*>(schedulingGrant_);
+
+    // ----- Begin My Code -----
+    if (CSRs.size() <= 0) {
+      // std::cout << __func__ << ", " << simTime() << "CSRs is 0." << std::endl;
+      schedulingGrant_ = PastschedulingGrant_;
+      _time2ch_rri.erase(simTime().dbl());
+      delete pkt;
+      return;
+    }
+    ASSERT(0 < CSRs.size());
+    // std::cout << __func__ << ", " << simTime() << "CSRs is 0 ASSERT." << std::endl;
+    // ----- End My Code -----
 
     // Select random element from vector
     int index = intuniform(0, CSRs.size()-1, 1);
@@ -1104,8 +1153,9 @@ void LteMacVUeMode4::macHandleSps(cPacket* pkt)
     // ----- Begin My Code -----
     PduMakeInfo* pdu_make_info_pkt = new PduMakeInfo("PduMakeInfo");
     pdu_make_info_pkt->setStartTime(selectedStartTime.dbl());
-    pdu_make_info_pkt->setRri(periodCounter_ * SLOT_2_MS);
+    pdu_make_info_pkt->setRri(mode4Grant->getPeriod() * SLOT_2_MS);
     pdu_make_info_pkt->setCh(mode4Grant->getNumSubchannels());
+    // std::cout << __func__ << ", " << simTime() << ", mac rri: " << mode4Grant->getPeriod() * SLOT_2_MS << std::endl;
     sendUpperPackets(pdu_make_info_pkt);
     // ----- Begin My Code -----
 
@@ -1126,6 +1176,7 @@ void LteMacVUeMode4::macGenerateSchedulingGrant(double maximumLatency, int prior
 
     // ----- Begin My Code -----
     resourceReservationInterval_ = _my_rri;
+    std::cout << __func__ << ", " << simTime() << ", resourceReservationInterval_: " << resourceReservationInterval_ << std::endl;
     // ----- End My Code -----
 
     // Priority is the most difficult part to figure out, for the moment I will assign it as a fixed value
@@ -1214,6 +1265,10 @@ void LteMacVUeMode4::macGenerateSchedulingGrant(double maximumLatency, int prior
     phyGrant->setControlInfo(uinfo);
 
     sendLowerPackets(phyGrant);
+
+    // ----- Begin My Code -----
+    PastschedulingGrant_ = schedulingGrant_;
+    // ----- End My Code -----
 
     schedulingGrant_ = mode4Grant;
 

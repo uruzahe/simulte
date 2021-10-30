@@ -260,7 +260,7 @@ void LtePhyUe::handoverHandler(LteAirFrame* frame, UserControlInfo* lteInfo)
 void LtePhyUe::triggerHandover()
 {
     // TODO: remove asserts after testing
-    assert(masterId_ != candidateMasterId_);
+    ASSERT(masterId_ != candidateMasterId_);
 
     EV << "####Handover starting:####" << endl;
     EV << "current master: " << masterId_ << endl;
@@ -294,7 +294,7 @@ void LtePhyUe::doHandover()
     LteAmc *newAmc = getAmcModule(candidateMasterId_);
 
     // TODO verify the amc is the relay one and remove after tests
-    assert(newAmc != NULL);
+    ASSERT(newAmc != NULL);
 
     oldAmc->detachUser(nodeId_, UL);
     oldAmc->detachUser(nodeId_, DL);

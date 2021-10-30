@@ -238,16 +238,25 @@ VirtualTxSduQueue::VirtualTxSduQueue()
 }
 
 
-json VirtualTxSduQueue::header() {
+json VirtualTxSduQueue::header(std::string sender_id) {
   json header;
 
-  header["rlc"] = {};
+  header["rlc"] = {
+    {"sender_id", sender_id}
+  };
 
   return header;
 }
 
+json VirtualTxSduQueue::update_header(json packet, std::string sender_id) {
+  packet["rlc"]["sender_id"] = sender_id;
+
+  return packet;
+}
+
 void VirtualTxSduQueue::delete_expired_fragments(double current_time)
 {
+  // std::cout << __func__ << ", Begin." << std::endl;
 
   if (_delete_expired_time < current_time) {
     _delete_expired_time = current_time;
@@ -276,7 +285,8 @@ void VirtualTxSduQueue::delete_expired_fragments(double current_time)
 }
 
 json VirtualTxSduQueue::formatted_fragment(json packet, int lefted_size, int status_flag, int start_byte, int end_byte) {
-  assert(start_byte < end_byte);
+  // std::cout << __func__ << ", Begin." << std::endl;
+  ASSERT(start_byte < end_byte);
 
   json fragment = packet;
 
@@ -292,7 +302,8 @@ json VirtualTxSduQueue::formatted_fragment(json packet, int lefted_size, int sta
 }
 
 json VirtualTxSduQueue::update_fragment(json fragment, int lefted_size, int status_flag, int start_byte, int end_byte) {
-  assert(start_byte < end_byte);
+  // std::cout << __func__ << ", Begin." << std::endl;
+  ASSERT(start_byte < end_byte);
 
   fragment["lefted_size"] = lefted_size;
   fragment["status_flag"] = status_flag;
@@ -303,6 +314,8 @@ json VirtualTxSduQueue::update_fragment(json fragment, int lefted_size, int stat
 }
 
 json VirtualTxSduQueue::formatted_pdu(int maximum_size, double current_time) {
+
+  // std::cout << __func__ << ", Begin." << std::endl;
   json pdu;
   pdu["maximum_size"] = maximum_size;
   pdu["timestamp"] = current_time;
@@ -316,9 +329,11 @@ json VirtualTxSduQueue::formatted_pdu(int maximum_size, double current_time) {
 
 void VirtualTxSduQueue::enque(json packet)
 {
+
+  // std::cout << __func__ << ", Begin." << std::endl;
   packet["packet_id"] = _packet_id;
 
-  assert(std::find(_priority2packets.begin(), _priority2packets.end(), packet["priority"].get<int>()) != _priority2packets.end());
+  ASSERT(std::find(_priority2packets.begin(), _priority2packets.end(), packet["priority"].get<int>()) != _priority2packets.end());
   _priority2packets[packet["priority"].get<int>()].push_back(packet);
 
   _delete_expired_time = 0;
@@ -326,6 +341,8 @@ void VirtualTxSduQueue::enque(json packet)
 }
 
 json VirtualTxSduQueue::update_pdu_by_fragment(json pdu, double current_time) {
+
+  // std::cout << __func__ << ", Begin." << std::endl;
   int lefted_size = pdu["maximum_size"].get<int>() - pdu["size"].get<int>() - MY_RLC_UM_HEADER_BYTE - MY_PDCP_HEADER_BYTE;
 
   if (_fragment != NULL && 0 < lefted_size) {
@@ -372,6 +389,8 @@ json VirtualTxSduQueue::update_pdu_by_fragment(json pdu, double current_time) {
 
 json VirtualTxSduQueue::add_fragment_into_pdu(json pdu, json send_fragment, double current_time)
 {
+
+  // std::cout << __func__ << ", Begin." << std::endl;
   std::vector<json> sdus;
   if (pdu.find("sdu") != pdu.end()) {
     sdus = pdu["sdus"].get<std::vector<json>>();
@@ -398,6 +417,8 @@ json VirtualTxSduQueue::add_fragment_into_pdu(json pdu, json send_fragment, doub
 
 json VirtualTxSduQueue::generate_PDU(int maximum_byte, double current_time)
 {
+
+  // std::cout << __func__ << ", Begin." << std::endl;
   this->delete_expired_fragments(current_time);
 
   json pdu = this->update_pdu_by_fragment(
@@ -435,6 +456,8 @@ json VirtualTxSduQueue::generate_PDU(int maximum_byte, double current_time)
 
 json VirtualTxSduQueue::minimum_Bps(double current_time)
 {
+
+  // std::cout << __func__ << ", Begin." << std::endl;
   double total_byte = 0;
 
   json result;
@@ -462,6 +485,8 @@ json VirtualTxSduQueue::minimum_Bps(double current_time)
 
 json VirtualTxSduQueue::Bps2packet_size_and_rri(double minimum_Bps)
 {
+
+  // std::cout << __func__ << ", Begin." << std::endl;
   json result;
   result["size"] = cbr2seize_ch_rri[cbrs.back()]["size"].get<int>();
   result["ch"] =   cbr2seize_ch_rri[cbrs.back()]["ch"].get<int>();
@@ -492,7 +517,7 @@ double VirtualTxSduQueue::maximum_duration(double current_time) {
 
   for (auto ptr = _priority2packets.begin(); ptr != _priority2packets.end(); ptr++) {
     for (auto itr = ptr->second.begin(); itr != ptr->second.end(); itr++) {
-      result = min((*itr)["expired_time"].get<double>() - current_time, result);
+      result = max(0.001, min((*itr)["expired_time"].get<double>() - current_time, result));
     }
   }
 
@@ -513,6 +538,7 @@ bool VirtualTxSduQueue::is_empty(double current_time) {
 }
 
 json VirtualTxSduQueue::get_duration_size_rri(double current_time, double maximum_duration) {
+  // std::cout << __func__ << ", Begin." << std::endl;
   this->delete_expired_fragments(current_time);
 
   bool be_found = false;
@@ -540,10 +566,10 @@ json VirtualTxSduQueue::get_duration_size_rri(double current_time, double maximu
 
       if (_fragment != NULL) {
         total_byte += _fragment["lefted_size"].get<double>();
-        std::cout << __func__ << ", expired" << _fragment["expired_time"].get<double>() << ", current_time: " << current_time << ", duration: " << duration << std::endl;
+        // std::cout << __func__ << ", expired" << _fragment["expired_time"].get<double>() << ", current_time: " << current_time << ", duration: " << duration << std::endl;
         rri_count = (int) ((_fragment["expired_time"].get<double>() - current_time - duration) / rri) + 1;
 
-        std::cout << __func__ << ", total_byte" << total_byte << ", rri_count: " << rri_count << ", size" << size << ", rri" << rri << std::endl;
+        // std::cout << __func__ << ", total_byte" << total_byte << ", rri_count: " << rri_count << ", size" << size << ", rri" << rri << std::endl;
         be_found = (total_byte <= rri_count * size);
       }
 
@@ -552,10 +578,10 @@ json VirtualTxSduQueue::get_duration_size_rri(double current_time, double maximu
       for (auto ptr = _priority2packets.begin(); ptr != _priority2packets.end(); ptr++) {
         for (auto itr = ptr->second.begin(); itr != ptr->second.end(); itr++) {
           total_byte += (*itr)["size"].get<double>();
-          std::cout << __func__ << ", expired" << (*itr)["expired_time"].get<double>() << ", current_time: " << current_time << ", duration: " << duration << std::endl;
+          // std::cout << __func__ << ", expired" << (*itr)["expired_time"].get<double>() << ", current_time: " << current_time << ", duration: " << duration << std::endl;
           rri_count = (int) (((*itr)["expired_time"].get<double>() - current_time - duration) / rri) + 1;
 
-          std::cout << __func__ << ", total_byte" << total_byte << ", rri_count: " << rri_count << ", size" << size << ", rri" << rri << std::endl;
+          // std::cout << __func__ << ", total_byte" << total_byte << ", rri_count: " << rri_count << ", size" << size << ", rri" << rri << std::endl;
           be_found = (total_byte < rri_count * size);
 
 
@@ -586,15 +612,25 @@ json VirtualTxSduQueue::get_duration_size_rri(double current_time, double maximu
 // ----- Begin: VirtualRxSduQueue -----
 json VirtualRxSduQueue::enque_and_decode(json sdu)
 {
-  // std::cout << "begin: " << __func__ << std::endl;
+
+  // std::cout << __func__ << ", Begin." << std::endl;
   json result = NULL;
 
-  std::string sender_id = sdu["sender_id"].get<std::string>();
+  std::string sender_id = sdu["rlc"]["sender_id"].get<std::string>();
   int packet_id = sdu["packet_id"].get<int>();
 
   std::vector<json> sdus = {sdu};
+  std::vector<json> tmp_sdus = {};
+
   for (auto itr = _sender2packet_id2start_byte2sdu[sender_id][packet_id].begin(); itr != _sender2packet_id2start_byte2sdu[sender_id][packet_id].end(); itr++) {
-    for (auto jtr = sdus.begin(); jtr != sdus.end(); jtr++) {
+    // std::cout << __func__ << ", itr ----- : " << itr->second << std::endl;
+
+
+    auto jtr = sdus.begin();
+    while (jtr != sdus.end()) {
+    // for (auto jtr = sdus.begin(); jtr != sdus.end(); jtr++) {
+      // std::cout << __func__ << ", jtr +++++ : " << (*jtr) << std::endl;
+
       double diff_start_byte = (*jtr)["start_byte"].get<int>() - itr->second["start_byte"].get<int>();
       double diff_end_byte = (*jtr)["end_byte"].get<int>() - itr->second["end_byte"].get<int>();
 
@@ -603,9 +639,11 @@ json VirtualRxSduQueue::enque_and_decode(json sdu)
 
       } else if (diff_start_byte < 0 && diff_end_byte <= 0) {
         (*jtr)["end_byte"] = itr->second["start_byte"].get<int>();
+        jtr++;
 
       } else if (0 <= diff_start_byte && 0 < diff_end_byte) {
         (*jtr)["start_byte"] = itr->second["end_byte"].get<int>();
+        jtr++;
 
       } else {
         json tmp_1 = (*jtr);
@@ -615,10 +653,15 @@ json VirtualRxSduQueue::enque_and_decode(json sdu)
         tmp_2["start_byte"] = itr->second["end_byte"].get<int>();
 
         sdus.erase(jtr);
-        sdus.push_back(tmp_1);
-        sdus.push_back(tmp_2);
+        tmp_sdus.push_back(tmp_1);
+        tmp_sdus.push_back(tmp_2);
       }
+    }
 
+    auto ltr = tmp_sdus.begin();
+    while (ltr != tmp_sdus.end()) {
+      sdus.push_back(*ltr);
+      tmp_sdus.erase(ltr);
     }
   }
 
@@ -660,6 +703,8 @@ bool VirtualRxSduQueue::is_decoded(std::string sender_id, int packet_id, int sta
 
 // ----- Begin: VirtualGeoNetwork -----
 json VirtualGeoNetwork::header(double sender_pos_x, double sender_pos_y, double dest_pos_x, double dest_pos_y, double hop_limit, double expired_time, std::string sender_id) {
+
+  // std::cout << __func__ << ", Begin." << std::endl;
   json header;
 
   header["geocast"] = {
@@ -678,6 +723,8 @@ json VirtualGeoNetwork::header(double sender_pos_x, double sender_pos_y, double 
 }
 
 json VirtualGeoNetwork::update_header(json packet, inet::Coord sender_coord) {
+
+  // std::cout << __func__ << ", Begin." << std::endl;
   packet["geocast"]["sender_pos_x"] = sender_coord.x;
   packet["geocast"]["sender_pos_y"] = sender_coord.y;
 
@@ -686,6 +733,8 @@ json VirtualGeoNetwork::update_header(json packet, inet::Coord sender_coord) {
 
 
 json VirtualGeoNetwork::enque(json packet) {
+
+  // std::cout << __func__ << ", Begin." << std::endl;
   packet["geocast"]["hop_limit"] = packet["geocast"]["hop_limit"].get<int>() - 1;
 
   std::string sender_id = packet["geocast"]["sender_id"].get<std::string>();
@@ -703,7 +752,7 @@ json VirtualGeoNetwork::enque(json packet) {
 }
 
 void VirtualGeoNetwork::delete_old_packet(std::string sender_id, double current_time) {
-  std::cout << __func__ << std::endl;
+  // std::cout << __func__ << std::endl;
 
   auto itr = _sender_id2packet_id2packet[sender_id].begin();
   while (itr != _sender_id2packet_id2packet[sender_id].end()) {
@@ -716,6 +765,8 @@ void VirtualGeoNetwork::delete_old_packet(std::string sender_id, double current_
 }
 
 bool VirtualGeoNetwork::is_already_received(json packet) {
+
+  // std::cout << __func__ << ", Begin." << std::endl;
   std::string sender_id = packet["geocast"]["sender_id"].get<std::string>();
   int packet_id = packet["geocast"]["packet_id"].get<int>();
 
@@ -727,26 +778,26 @@ bool VirtualGeoNetwork::is_already_received(json packet) {
 }
 
 double VirtualGeoNetwork::CBF_resend_time(json packet, inet::Coord recver_pos, double current_time) {
-  std::cout << __func__ << ", packet" << std::endl;
+  // std::cout << __func__ << ", packet" << std::endl;
 
   double resend_time = -1;
 
   // this->delete_old_packet(packet["geocast"]["sender_id"].get<std::string>(), current_time);
 
   // ----- validation hop limit -----
-  std::cout << __func__ << ", packet" << std::endl;
+  // std::cout << __func__ << ", packet" << std::endl;
   if (packet["geocast"]["hop_limit"].get<int>() <= 0) {
     return resend_time;
   }
 
   // ----- validation duplication receive -----
-  std::cout << __func__ << ", packet" << std::endl;
+  // std::cout << __func__ << ", packet" << std::endl;
   if (!this->is_resend(packet)) {
     return resend_time;
   }
 
   // ----- validation angle (60) -----
-  std::cout << __func__ << ", packet" << std::endl;
+  // std::cout << __func__ << ", packet" << std::endl;
   double recver_pos_x = recver_pos.x;
   double recver_pos_y = recver_pos.y;
   double sender_pos_x = packet["geocast"]["sender_pos_x"].get<double>();
@@ -764,20 +815,23 @@ double VirtualGeoNetwork::CBF_resend_time(json packet, inet::Coord recver_pos, d
 
   double cos_angle = (diff_sender_dest_x * diff_sender_recver_x + diff_sender_dest_y * diff_sender_recver_y) / (dist_sender_dest * dist_sender_recver);
 
-  std::cout << __func__ << ", cos_angle: " << cos_angle << std::endl;
+  // std::cout << __func__ << ", cos_angle: " << cos_angle << std::endl;
   if (cos_angle < 0.5) {
+    return resend_time;
+  }
+  if (dist_sender_dest <= _DIST_MAX / 2.0) {
     return resend_time;
   }
 
   double TO_CBF_GUC;
   if (dist_sender_recver <= _DIST_MAX) {
-    TO_CBF_GUC = _TO_CBF_MAX + (_TO_CBF_MIN - _TO_CBF_MAX) / (dist_sender_recver / _DIST_MAX);
+    TO_CBF_GUC = _TO_CBF_MAX + (_TO_CBF_MIN - _TO_CBF_MAX) * (dist_sender_recver / _DIST_MAX);
   } else {
     TO_CBF_GUC = _TO_CBF_MIN;
   }
 
   // ----- validation expired_time -----
-  std::cout << __func__ << ", packet" << std::endl;
+  // std::cout << __func__ << ", packet" << std::endl;
   if (packet["geocast"]["expired_time"].get<double>() < current_time + TO_CBF_GUC) {
     return resend_time;
   }
@@ -789,6 +843,8 @@ double VirtualGeoNetwork::CBF_resend_time(json packet, inet::Coord recver_pos, d
 
 
 void VirtualGeoNetwork::resend_enque(double resend_time, json packet) {
+
+  // std::cout << __func__ << ", Begin." << std::endl;
   if (_resend_time2packets.find(resend_time) == _resend_time2packets.end()) {
     _resend_time2packets[resend_time] = {};
   }
@@ -797,9 +853,12 @@ void VirtualGeoNetwork::resend_enque(double resend_time, json packet) {
 }
 
 bool VirtualGeoNetwork::is_resend(json packet) {
+
+  // std::cout << __func__ << ", Begin." << std::endl;
   std::string sender_id = packet["geocast"]["sender_id"].get<std::string>();
   int packet_id = packet["geocast"]["packet_id"].get<int>();
 
+  // std::cout << __func__ << ", Geonet Duplication: " << _sender_id2packet_id2packet_count[sender_id][packet_id] << std::endl;
   if (2 <= _sender_id2packet_id2packet_count[sender_id][packet_id]) {
     return false;
   } else {

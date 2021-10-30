@@ -31,6 +31,10 @@ class LteMacUe : public LteMacBase
     // configured grant - one each codeword
     LteSchedulingGrant* schedulingGrant_;
 
+    // ----- Begin My Code -----
+    LteSchedulingGrant* PastschedulingGrant_;
+    // ----- End My Code -----
+
     // current H-ARQ process counter
     unsigned char currentHarq_;
 

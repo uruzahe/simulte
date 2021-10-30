@@ -48,7 +48,7 @@ MacNodeId LteAmc::getNextHop(MacNodeId dst)
     EV << "LteAmc::getNextHop Node Id dst : " << dst << endl;
 
     // The UE is connected to a relay
-    // XXX assert(nodeType_==ENODEB);
+    // XXX ASSERT(nodeType_==ENODEB);
     return nh;
 }
 

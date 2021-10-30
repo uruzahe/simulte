@@ -195,14 +195,14 @@ class CircularList
      */
     const T& current() const
     {
-        assert( size_ > 0);
+        ASSERT( size_ > 0);
         return *cur_;
     }
 
     //! Return the current element.
     T& current()
     {
-        assert( size_ > 0);
+        ASSERT( size_ > 0);
         return *cur_;
     }
 

@@ -221,7 +221,7 @@ bool LteMacBase::bufferizePacket(cPacket* pkt)
         queue->getQueueSize() - queue->getByteLength() << "\n";
     }
         /// After bufferization buffers must be synchronized
-    assert(mbuf_[cid]->getQueueLength() == macBuffers_[cid]->getQueueLength());
+    ASSERT(mbuf_[cid]->getQueueLength() == macBuffers_[cid]->getQueueLength());
     return true;
 }
 

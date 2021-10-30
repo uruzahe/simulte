@@ -219,7 +219,7 @@ void LtePhyUeD2D::doHandover()
     // amc calls
     LteAmc *oldAmc = getAmcModule(masterId_);
     LteAmc *newAmc = getAmcModule(candidateMasterId_);
-    assert(newAmc != NULL);
+    ASSERT(newAmc != NULL);
     oldAmc->detachUser(nodeId_, D2D);
     newAmc->attachUser(nodeId_, D2D);
 

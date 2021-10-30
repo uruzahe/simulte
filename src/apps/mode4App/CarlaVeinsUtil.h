@@ -116,7 +116,8 @@ public:
 
   VirtualTxSduQueue();
 
-  json header();
+  json header(std::string sender_id);
+  json update_header(json packet, std::string sender_id);
 
   json add_fragment_into_pdu(json pdu, json send_fragment, double current_time);
   void delete_expired_fragments(double current_time);

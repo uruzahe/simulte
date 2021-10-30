@@ -170,6 +170,7 @@ protected:
    double _current_ch = 1;
 
    cMessage*  _removeDataFromQueue;
+   cMessage* _resource_selection;
    // ----- My Code, End -----
 
 };

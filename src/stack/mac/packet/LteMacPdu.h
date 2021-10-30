@@ -289,4 +289,3 @@ class LteMacPdu : public LteMacPdu_Base
 Register_Class(LteMacPdu);
 
 #endif
-
