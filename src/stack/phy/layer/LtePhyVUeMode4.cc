@@ -522,6 +522,7 @@ RbMap LtePhyVUeMode4::sendSciMessage(cMessage* msg, UserControlInfo* lteInfo)
     SidelinkControlInformation* SCI = createSCIMessage();
     LteAirFrame* sciFrame = prepareAirFrame(SCI, SCIInfo);
 
+    // // std::cout << __func__ << ", " << simTime() << ", sci channel num: " << sciGrant_->getNumSubchannels() << ", sci startting channel: " << sciGrant_->getStartingSubchannel() << std::endl;
     emit(sciSent, 1);
     emit(subchannelSent, sciGrant_->getStartingSubchannel());
     emit(subchannelsUsedToSend, sciGrant_->getNumSubchannels());
@@ -896,7 +897,7 @@ void LtePhyVUeMode4::computeCSRs(LteMode4SchedulingGrant* &grant) {
         optimalCSRs = orderedCSRs;
     }
 
-    // std::cout << __func__ << ", " << simTime() << ", CSRs size: " << optimalCSRs.size() << std::endl;
+    // // std::cout << __func__ << ", " << simTime() << ", CSRs size: " << optimalCSRs.size() << std::endl;
 
     // Send the packet up to the MAC layer where it will choose the CSR and the retransmission if that is specified
     // Need to generate the message that is to be sent to the upper layers.
@@ -1151,7 +1152,7 @@ SidelinkControlInformation* LtePhyVUeMode4::createSCIMessage()
      */
     unsigned int riv;
     //
-    if (sciGrant_->getNumSubchannels() -1 <= (numSubchannels_/2))
+    if (sciGrant_->getNumSubchannels() -1 <= (numSubchannels_/2.0))
     {
         // RIV calculation for less than half+1
         riv = ((numSubchannels_ * (sciGrant_->getNumSubchannels() - 1)) + sciGrant_->getStartingSubchannel());
@@ -1439,9 +1440,10 @@ void LtePhyVUeMode4::decodeAirFrame(LteAirFrame* frame, UserControlInfo* lteInfo
                 int subchannelIndex = std::get<0>(indexAndLength);
                 int lengthInSubchannels = std::get<1>(indexAndLength);
 
+                // // std::cout << __func__ << ", " << simTime() << ", subchannelIndex: " << subchannelIndex << ", lengthInSubchannels: " << lengthInSubchannels << std::endl;
                 std::vector <Subchannel *> currentSubframe = sensingWindow_[sensingWindowFront_];
                 for (int i = subchannelIndex; i < subchannelIndex + lengthInSubchannels; i++) {
-                    std::cout << __func__ << ", " << simTime() << ", subchannelIndex: " << i << ", lengthInSubchannels: " << lengthInSubchannels << std::endl;
+                    // // std::cout << __func__ << ", " << simTime() << ", subchannelIndex: " << i << ", lengthInSubchannels: " << lengthInSubchannels << std::endl;
                     Subchannel *currentSubchannel = currentSubframe[i];
                     std::vector<Band>::iterator lt;
                     std::vector <Band> allocatedBands = currentSubchannel->getOccupiedBands();
@@ -1453,7 +1455,7 @@ void LtePhyVUeMode4::decodeAirFrame(LteAirFrame* frame, UserControlInfo* lteInfo
                         for (mt = usedRbs.begin(); mt != usedRbs.end(); ++mt) {
                             //for each logical band used to transmit the packet
                             for (nt = mt->second.begin(); nt != mt->second.end(); ++nt) {
-                                std::cout << __func__ << ", " << simTime() << ", nt->first: " << nt->first << ", *lt" << *lt << std::endl;
+                                // // std::cout << __func__ << ", " << simTime() << ", nt->first: " << nt->first << ", *lt" << *lt << std::endl;
                                 if (nt->first == *lt) {
                                     currentSubchannel->addRsrpValue(rsrpVector[(*lt)], (*lt));
                                     currentSubchannel->addRssiValue(rssiVector[(*lt)], (*lt));
@@ -1525,7 +1527,7 @@ std::tuple<int,int> LtePhyVUeMode4::decodeRivValue(SidelinkControlInformation* s
     it = rbMap.begin();
     while (it != rbMap.end() && bandNotFound )
     {
-        std::cout << __func__ << ", rb size: " << it->second.size() << std::endl; 
+        // // std::cout << __func__ << ", rb size: " << it->second.size() << std::endl;
         for (jt = it->second.begin(); jt != it->second.end(); ++jt)
         {
             Band band = jt->first;
@@ -1538,7 +1540,7 @@ std::tuple<int,int> LtePhyVUeMode4::decodeRivValue(SidelinkControlInformation* s
         }
     }
 
-    std::cout << __func__ << ", " << simTime() << ", rbMap size: " << rbMap.size() << ", startingBand: " << startingBand << std::endl;
+    // // std::cout << __func__ << ", " << simTime() << ", rbMap size: " << rbMap.size() << ", startingBand: " << startingBand << std::endl;
 
     // Get RIV first as this is common
     unsigned int RIV = sci->getFrequencyResourceLocation();
@@ -1563,20 +1565,41 @@ std::tuple<int,int> LtePhyVUeMode4::decodeRivValue(SidelinkControlInformation* s
     // RIV = numSubchannels(numSubchannels-SubchannelLength+1) + (numSubchannels-1-subchannelIndex)
     // RIV limit
     // log2(numSubchannels(numSubchannels+1)/2)
-    double subchannelLOverHalf = (numSubchannels_ + 2 + (( -1 - subchannelIndex - RIV )/numSubchannels_));
-    double subchannelLUnderHalf = (RIV + numSubchannels_ - subchannelIndex)/numSubchannels_;
     int lengthInSubchannels;
 
-    // First the number has to be whole in both cases, it's length + subchannelIndex must be less than the number of subchannels
-    if (floor(subchannelLOverHalf) == subchannelLOverHalf && subchannelLOverHalf <= numSubchannels_ && subchannelLOverHalf + subchannelIndex <= numSubchannels_)
-    {
-        lengthInSubchannels = subchannelLOverHalf;
+    // ----- Begin Modification -----
+    // ----- Original Code -----
+    // double subchannelLOverHalf = (numSubchannels_ + 2 + (( -1 - subchannelIndex - RIV )/ (double) numSubchannels_));
+    // double subchannelLUnderHalf = (RIV + numSubchannels_ - subchannelIndex)/ (double) numSubchannels_;
+    // // First the number has to be whole in both cases, it's length + subchannelIndex must be less than the number of subchannels
+    // if (floor(subchannelLOverHalf) == subchannelLOverHalf && subchannelLOverHalf <= numSubchannels_ && subchannelLOverHalf + subchannelIndex <= numSubchannels_)
+    // {
+    //     lengthInSubchannels = subchannelLOverHalf;
+    // }
+    // // Same as above but also the length must be less than half + 1
+    // else if (floor(subchannelLUnderHalf) == subchannelLUnderHalf && subchannelLUnderHalf + subchannelIndex <= numSubchannels_ && subchannelLUnderHalf <= numSubchannels_ /2 + 1)
+    // {
+    //     lengthInSubchannels = subchannelLUnderHalf;
+    // }
+    // ----- My Code -----
+    // double subchannelLOverHalf = (numSubchannels_ + 2 + (( -1 - subchannelIndex - RIV )/ (double) numSubchannels_));
+    double subchannelLOverHalf = numSubchannels_ + 2.0 + (-1 - subchannelIndex - (double) RIV) / (double) numSubchannels_;
+    double subchannelLUnderHalf = ((double) RIV - subchannelIndex) / (double) numSubchannels_ + 1;
+
+    assert(floor(subchannelLOverHalf) == subchannelLOverHalf);
+    assert(floor(subchannelLUnderHalf) == subchannelLUnderHalf);
+    // // std::cout << __func__ << ", " << simTime() << ", RIV: " << RIV << ", numSubchannels_: " << numSubchannels_ << ", subchannelLUnderHalf: " << subchannelLUnderHalf << ", subchannelLOverHalf: " << subchannelLOverHalf << std::endl;
+    if (floor(subchannelLUnderHalf) == subchannelLUnderHalf && subchannelLUnderHalf - 1 < numSubchannels_ / 2.0) {
+      lengthInSubchannels = subchannelLUnderHalf;
+
+    } else if (floor(subchannelLOverHalf) == subchannelLOverHalf) {
+      lengthInSubchannels = subchannelLOverHalf;
+
+    } else {
+      // // std::cout << __func__ << ", " << simTime() << ", RIV: " << RIV << ", subchannelLUnderHalf: " << subchannelLUnderHalf << ", subchannelLOverHalf: " << subchannelLOverHalf << std::endl;
+      cRuntimeError("Unmatched RIV.");
     }
-    // Same as above but also the length must be less than half + 1
-    else if (floor(subchannelLUnderHalf) == subchannelLUnderHalf && subchannelLUnderHalf + subchannelIndex <= numSubchannels_ && subchannelLUnderHalf <= numSubchannels_ /2 + 1)
-    {
-        lengthInSubchannels = subchannelLUnderHalf;
-    }
+    // ----- End Modification -----
     return std::make_tuple(subchannelIndex, lengthInSubchannels);
 }
 
@@ -1618,7 +1641,7 @@ void LtePhyVUeMode4::updateCBR()
         cbrCount --;
     }
 
-    std::cout << __func__ << ", " << simTime() << ", totalSubchannels: " << totalSubchannels << ", cbrValue: " << cbrValue << std::endl;
+    // // std::cout << __func__ << ", " << simTime() << ", totalSubchannels: " << totalSubchannels << ", cbrValue: " << cbrValue << std::endl;
     cbrValue = cbrValue / totalSubchannels;
 
     emit(cbr, cbrValue);

@@ -116,7 +116,7 @@ public:
 
   VirtualTxSduQueue();
 
-  json header(std::string sender_id);
+  json header(std::string sender_id, int priority);
   json update_header(json packet, std::string sender_id);
 
   json add_fragment_into_pdu(json pdu, json send_fragment, double current_time);
@@ -174,6 +174,7 @@ public:
   double CBF_resend_time(json packet, inet::Coord recver_pos, double current_time);
   void resend_enque(double resend_time, json packet);
   std::vector<json> resend_deque(double resend_time);
+  std::vector<std::string> duplication_packets_count();
 
   std::unordered_map<double, std::vector<json>> time2resend_packets;
   std::vector<json> deque();
@@ -187,6 +188,8 @@ std::string cams_json_file_path(std::string data_sync_dir, std::string sumo_id);
 std::string cams_recv_json_file_path(std::string data_sync_dir, std::string sumo_id);
 
 std::string cpms_json_file_path(std::string data_sync_dir, std::string sumo_id);
+
+std::string dup_count_file_path(std::string data_sync_dir, std::string sumo_id);
 
 std::string objects_json_file_path(std::string data_sync_dir, std::string sumo_id);
 
