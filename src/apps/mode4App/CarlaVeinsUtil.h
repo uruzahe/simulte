@@ -91,7 +91,7 @@ class VirtualTxSduQueue
 {
 public:
   json _fragment;
-  std::vector<json> _past_fragments;
+  int _past_fragment_count = 0;
   std::unordered_map<int, json> _priority2packets;
 
   int _packet_id;
@@ -137,25 +137,34 @@ public:
   json get_duration_size_rri(double current_time, double maximum_duration);
 };
 
+struct LogData {
+  std::string sender_id;
+  int packet_id;
+  double recv_time;
+};
+
 class VirtualRxSduQueue
 {
 public:
-  std::unordered_map<std::string, std::unordered_map<int, std::vector<json>>> _sender2packet_id2sdus;
+  // std::unordered_map<std::string, std::unordered_map<int, std::vector<json>>> _sender2packet_id2sdus;
+  std::vector<struct LogData> _recv_logs;
   std::unordered_map<std::string, std::unordered_map<int, std::unordered_map<int, json>>> _sender2packet_id2start_byte2sdu;
 
-  json enque_and_decode(json fragment);
+  void logging(std::string sender_id, int packet_id, double recv_time);
+  json enque_and_decode(json fragment, double current_time);
   bool is_decoded(std::string sender_id, int packet_id, int start_byte);
 };
 
 class VirtualGeoNetwork
 {
 public:
-  int _itsGnMaxSduSize;
-  int _itsGnMaxPacketLifetime;
-  int _itsGnMinPacketRepetitionInterval;
-  int _itsGnMaxGeoAreaSize;
+  // int _itsGnMaxSduSize;
+  // int _itsGnMaxPacketLifetime;
+  // int _itsGnMinPacketRepetitionInterval;
+  // int _itsGnMaxGeoAreaSize;
 
   int _packet_id = 0;
+  std::vector<struct LogData> _recv_logs;
   std::unordered_map<std::string, std::unordered_map<int, json>> _sender_id2packet_id2packet;
   std::unordered_map<std::string, std::unordered_map<int, int>> _sender_id2packet_id2packet_count;
   std::unordered_map<double, std::vector<json>> _resend_time2packets;
@@ -165,12 +174,13 @@ public:
   double _TO_CBF_MAX = 0.1;
   double _DIST_MAX = 400;
 
+  void logging(std::string sender_id, int packet_id, double recv_time);
   json header(double sender_pos_x, double sender_pos_y, double dest_pos_x, double dest_pos_y, double hop_limit, double expired_time, std::string sender_id);
   json update_header(json packet, inet::Coord sender_coord);
   void delete_old_packet(std::string sender_id, double current_time);
   bool is_already_received(json packet);
   bool is_resend(json packet);
-  json enque(json packet);
+  json enque(json packet, double current_time);
   double CBF_resend_time(json packet, inet::Coord recver_pos, double current_time);
   void resend_enque(double resend_time, json packet);
   std::vector<json> resend_deque(double resend_time);
@@ -182,6 +192,8 @@ public:
 
 
 json add_time_attribute_to_json(json data, std::string attr_name, double t);
+
+std::string cbr_file_path(std::string data_sync_dir, std::string sumo_id);
 
 std::string cams_json_file_path(std::string data_sync_dir, std::string sumo_id);
 

@@ -90,6 +90,7 @@ void Mode4App::initialize(int stage)
         sendBeacons = par("sendBeacons").boolValue();
         is_dynamic_simulation = par("is_dynamic_simulation").boolValue();
         carlaTimeStep = par("carlaTimeStep").doubleValue();
+        _max_hop = par("max_hop").intValue();
 
         sumo_id = mobility->external_id;
         std::cout << ", sumo_id: " << sumo_id << " is loaded. " << std::endl;
@@ -116,8 +117,11 @@ void Mode4App::initialize(int stage)
         _pdu_interval = 0.020;
 
         _removeDataFromQueue = new cMessage("_removeDataFromQueue");
+        // _removeDataFromQueue->setSchedulingPriority(10);
+
         _resource_selection = new cMessage("_resource_selection");
         _resource_selection->setSchedulingPriority(10);
+
         // ----- initialize -----
         if (!sendBeacons && !is_dynamic_simulation) {
           loadCarlaVeinsData(true);
@@ -126,6 +130,8 @@ void Mode4App::initialize(int stage)
         if (!sendBeacons) {
             touch(cams_recv_json_file_path(carlaVeinsDataDir, sumo_id));
             touch(objects_recv_json_file_path(carlaVeinsDataDir, sumo_id));
+            touch(dup_count_file_path(carlaVeinsDataDir, sumo_id));
+            touch(cbr_file_path(carlaVeinsDataDir, sumo_id));
         }
 
         generatedCPMs = 0;
@@ -145,8 +151,8 @@ void Mode4App::StachSendPDU() {
     json pdu = _sdu_tx_ptr->generate_PDU(pdu_size, simTime().dbl());
     json pdu_info = {{"ch", _current_ch}, {"rri", _current_rri}};
 
-    // // std::cout << __func__ << ", pdu: " << pdu << ", pdu_info: " << pdu_info << std::endl;
-    // // std::cout << __func__ << ", now: " << simTime() << ", pdu_time: " << _pdu_sender->getArrivalTime() << std::endl;
+    // std::cout << __func__ << ", pdu: " << pdu << ", pdu_info: " << pdu_info << std::endl;
+    // std::cout << __func__ << ", now: " << simTime() << ", pdu_time: " << _pdu_sender->getArrivalTime() << std::endl;
     SendPacket(pdu.dump(), "pdu", pdu["size"].get<int>(), pdu["duration"].get<double>(), pdu_info);
   }
 }
@@ -185,13 +191,13 @@ json Mode4App::GeoNetworkHandler (std::string cmd, json packet={}) {
   json result = {};
 
   if (cmd == "FromApp") {
-    return this->RlcHandler("FromGeocast", _network_ptr->enque(packet));
+    return this->RlcHandler("FromGeocast", _network_ptr->enque(packet, simTime().dbl()));
 
   } else if (cmd == "FromRlc") {
-    _network_ptr->enque(packet);
+    _network_ptr->enque(packet, simTime().dbl());
 
     double resend_time = _network_ptr->CBF_resend_time(packet, mobility->getCurrentPosition(), simTime().dbl());
-    // // std::cout << __func__ << ", resend_time: " << resend_time << ", packet: " << packet << std::endl;
+    // std::cout << __func__ << ", resend_time: " << resend_time << ", packet: " << packet << std::endl;
 
     if (simTime().dbl() < resend_time) {
       // !!!!! Tips, change priority !!!!!
@@ -199,10 +205,7 @@ json Mode4App::GeoNetworkHandler (std::string cmd, json packet={}) {
       // !!!!! Tips, end !!!!!
 
       _network_ptr->resend_enque(resend_time, packet);
-
       _network_ptr->_resend_times.push_back(resend_time);
-      std::sort(_network_ptr->_resend_times.begin(), _network_ptr->_resend_times.end(), std::greater<double>{});
-      std::unique(_network_ptr->_resend_times.begin(), _network_ptr->_resend_times.end());
 
       this->GeoNetworkHandler("ReSendSchedule", {});
     }
@@ -212,22 +215,32 @@ json Mode4App::GeoNetworkHandler (std::string cmd, json packet={}) {
   } else if (cmd == "ReSend") {
     std::vector<json> resend_packets = _network_ptr->resend_deque(simTime().dbl());
 
-    // // std::cout << __func__ << ", ReSend Start." << std::endl;
     for (auto itr = resend_packets.begin(); itr != resend_packets.end(); itr++) {
-      // // std::cout << __func__ << ", ReSend." << std::endl;
-      this->RlcHandler("FromGeocast", _network_ptr->enque(_network_ptr->update_header(*itr, mobility->getCurrentPosition())));
+      this->RlcHandler(
+        "FromGeocast",
+        _network_ptr->enque(
+          _network_ptr->update_header(
+            *itr,
+            mobility->getCurrentPosition()
+          ),
+          simTime().dbl()
+        )
+      );
     }
-    // // std::cout << __func__ << ", ReSend End." << std::endl;
 
-    // resource_selection();
     this->GeoNetworkHandler("ReSendSchedule", {});
 
   } else if (cmd == "ReSendSchedule") {
     if (0 < _network_ptr->_resend_times.size()) {
+      std::sort(_network_ptr->_resend_times.begin(), _network_ptr->_resend_times.end(), std::greater<double>{});
+      std::unique(_network_ptr->_resend_times.begin(), _network_ptr->_resend_times.end());
+
       cancelEvent(_cbf_resend);
       scheduleAt(_network_ptr->_resend_times.back(), _cbf_resend);
+
       _network_ptr->_resend_times.pop_back();
     }
+
   } else {
     throw cRuntimeError("Unknown cmd");
 
@@ -242,13 +255,16 @@ json Mode4App::RlcHandler (std::string cmd, json packet={}) {
   if (cmd == "FromGeocast") {
     _sdu_tx_ptr->enque(_sdu_tx_ptr->update_header(packet, this->sumo_id));
 
+    cancelEvent(_resource_selection);
+    scheduleAt(simTime(), _resource_selection);
+
   } else if (cmd == "ToGeocast") {
     return this->GeoNetworkHandler("FromRlc", packet);
 
   } else if (cmd == "FromPhy") {
 
   } else if (cmd == "ToPhy") {
-    // // std::cout << __func__ << simTime() << "ToPhy" << std::endl;
+    // std::cout << __func__ << simTime() << "ToPhy" << std::endl;
     this->StachSendPDU();
 
   } else {
@@ -272,7 +288,7 @@ void Mode4App::SdusHandler(std::vector<json> sdus, double send_time, double recv
       this->RlcHandler("ToGeocast", (*itr));
 
     } else {
-      json packet = _sdu_rx_ptr->enque_and_decode((*itr));
+      json packet = _sdu_rx_ptr->enque_and_decode((*itr), simTime().dbl());
 
       if (packet != NULL) {
         myHandleLowerMessage(packet["payload"].get<std::string>(), packet["type"].get<std::string>(), send_time, recv_time);
@@ -320,7 +336,9 @@ void Mode4App::handleLowerMessage(cMessage* msg)
     if (msg->isName("CBR")) {
         Cbr* cbrPkt = check_and_cast<Cbr*>(msg);
         double channel_load = cbrPkt->getCbr();
-        // std::cout << __func__ << ", " << simTime() << ", cbr: " << channel_load << std::endl;
+        json log = { {"time", simTime().dbl() }, {"cbr", channel_load} };
+        std::cout << __func__ << ", " << simTime() << ", cbr: " << channel_load << std::endl;
+        this->_cbr_logs.push_back(log.dump());
         emit(cbr_, channel_load);
         delete cbrPkt;
 
@@ -335,7 +353,7 @@ void Mode4App::handleLowerMessage(cMessage* msg)
       _current_ch = pdu_make_info_pkt->getCh();
       _current_rri = _pdu_interval.dbl();
 
-      // // std::cout << __func__ << ", start_time: " << start_time << ", rri: " << _current_rri << ", ch: " << _current_ch << std::endl;
+      std::cout << __func__ << ", start_time: " << start_time << ", rri: " << _current_rri << ", ch: " << _current_ch << std::endl;
       // _pdu_sender->setSchedulingPriority(0);
       scheduleAt(start_time, _pdu_sender);
     } else {
@@ -387,15 +405,15 @@ void Mode4App::handleSelfMessage(cMessage* msg)
 
         } else {
           syncCarlaVeinsData(msg);
-          cancelEvent(_resource_selection);
-          scheduleAt(simTime(), _resource_selection);
+          // cancelEvent(_resource_selection);
+          // scheduleAt(simTime(), _resource_selection);
         }
 
         emit(sentMsg_, (long)1);
         scheduleAt(simTime() + period_, selfSender_);
 
     } else if (!strcmp(msg->getName(), "_pdu_sender")) {
-      // // std::cout << __func__ << simTime() << "_pdu_sender" << std::endl;
+      // std::cout << __func__ << simTime() << "_pdu_sender" << std::endl;
       this->RlcHandler("ToPhy");
       // _pdu_sender->setSchedulingPriority(0);
       scheduleAt(simTime() + _pdu_interval, _pdu_sender);
@@ -450,6 +468,12 @@ bool Mode4App::isSduQueueEmpty()
 
 void Mode4App::removeDataFromQueue()
 {
+  // !!!!! important, so dont remove these codes !!!!!
+  simtime_t pre_time = _pdu_sender->getArrivalTime();
+  cancelEvent(_pdu_sender);
+  scheduleAt(pre_time, _pdu_sender);
+  // !!!!! important, so dont remove these codes !!!!!
+
   if (UmTxEntityPtr == nullptr && veins::FindModule<UmTxEntity*>::findSubModule(getParentModule())) {
     UmTxEntityPtr = veins::FindModule<UmTxEntity*>::findSubModule(getParentModule());
   }
@@ -461,7 +485,7 @@ void Mode4App::removeDataFromQueue()
 
 void Mode4App::SendPacket(std::string payload, std::string type, int payload_byte_size, int duration_ms, json pdu_info={})
 {
-  // // std::cout << __func__ << ", " << simTime() << ", pdu_info: " << pdu_info << std::endl;
+  // std::cout << __func__ << ", " << simTime() << ", pdu_info: " << pdu_info << std::endl;
   if (type == "pdu" || type == "reselection") {
 
     try {
@@ -533,7 +557,7 @@ void Mode4App::SendPacket(std::string payload, std::string type, int payload_byt
           CurrentPos.y,
           CurrentPos.x + target_dist,
           CurrentPos.y,
-          10,
+          _max_hop,
           packet["expired_time"].get<double>(),
           this->sumo_id
         ),
@@ -585,31 +609,25 @@ void Mode4App::syncCarlaVeinsData(cMessage* msg)
 
 
 void Mode4App::resource_selection() {
+  // std::cout << __func__ << ", " << simTime() << ", Begin." << std::endl;
+
+  json pdu_info = {};
   bool is_required_more_cr = false;
   bool is_short_duration = false;
-  json pdu_info = {};
+  if (isSduQueueEmpty() && _sdu_tx_ptr->is_empty(simTime().dbl()) == false && simTime() + TTI < _pdu_sender->getArrivalTime()) {
+    pdu_info = _sdu_tx_ptr->get_duration_size_rri(
+      simTime().dbl(),
+      _sdu_tx_ptr->maximum_duration(simTime().dbl())
+    );
 
-  if (isSduQueueEmpty() && _sdu_tx_ptr->is_empty(simTime().dbl()) == false) {
-    double maximum_duration = _sdu_tx_ptr->maximum_duration(simTime().dbl());
-    // // std::cout << __func__ << ", maximum_duration: " << maximum_duration << std::endl;
-
-    pdu_info = _sdu_tx_ptr->get_duration_size_rri(simTime().dbl(), maximum_duration);
-
+    std::cout << __func__ << ", " << simTime() << ", pdu_info: " << pdu_info <<  ", res time: " << _pdu_sender->getArrivalTime() << std::endl;
     is_required_more_cr = (_current_ch / _current_rri < pdu_info["ch"].get<int>() / pdu_info["rri"].get<double>());
-    // // std::cout << __func__ << simTime() << ", " << _pdu_sender->getArrivalTime().dbl() << std::endl;
     is_short_duration = pdu_info["duration"].get<double>() < _pdu_sender->getArrivalTime().dbl() - simTime().dbl();
-
-    // // std::cout << __func__ << ", pdu_info: " << pdu_info << std::endl;
   }
 
   if (is_required_more_cr || is_short_duration) {
     SendPacket("", "reselection", 0, pdu_info["duration"].get<double>() * 1000, pdu_info);
     scheduleAt(simTime(), _removeDataFromQueue);
-
-    simtime_t pre_time = _pdu_sender->getArrivalTime();
-    cancelEvent(_pdu_sender);
-    // _pdu_sender->setSchedulingPriority(10);
-    scheduleAt(pre_time, _pdu_sender);
   }
 }
 // ----- End My Code -----
@@ -618,6 +636,7 @@ void Mode4App::finish()
 {
     cancelAndDelete(selfSender_);
     string_vector2file(dup_count_file_path(carlaVeinsDataDir, sumo_id), _network_ptr->duplication_packets_count());
+    string_vector2file(cbr_file_path(carlaVeinsDataDir, sumo_id), _cbr_logs);
 }
 
 Mode4App::~Mode4App()

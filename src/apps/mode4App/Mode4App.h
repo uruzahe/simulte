@@ -171,6 +171,11 @@ protected:
 
    cMessage*  _removeDataFromQueue;
    cMessage* _resource_selection;
+
+   int _max_hop;
+
+   // ----- for eval -----
+   std::vector<std::string> _cbr_logs;
    // ----- My Code, End -----
 
 };
