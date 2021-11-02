@@ -33,6 +33,7 @@ void UmTxEntity::initialize()
 
 void UmTxEntity::enque(cPacket* pkt)
 {
+    std::cout << __func__ << ", " << simTime() << std::endl;
     EV << NOW << " UmTxEntity::enque - bufferize new SDU  " << endl;
     // Buffer the SDU
     if (!sduQueue_.empty()){

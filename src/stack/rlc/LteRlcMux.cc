@@ -40,6 +40,11 @@ void LteRlcMux::mac2rlc(cPacket *pkt)
         EV << "LteRlcMux : Sending packet " << pkt->getName() << " to port UM_Sap$o\n";
         send(pkt, umSap_[OUT]);
     }
+    else if (strcmp(pkt->getName(), "MyPduMake") == 0)
+    {
+        EV << "LteRlcMux : Sending packet " << pkt->getName() << " to port UM_Sap$o\n";
+        send(pkt, umSap_[OUT]);
+    }
     // ----- End My Code -----
     else
     {

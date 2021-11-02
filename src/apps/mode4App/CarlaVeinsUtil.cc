@@ -515,7 +515,7 @@ double VirtualTxSduQueue::maximum_duration(double current_time) {
 
   for (auto ptr = _priority2packets.begin(); ptr != _priority2packets.end(); ptr++) {
     for (auto itr = ptr->second.begin(); itr != ptr->second.end(); itr++) {
-      result = max(0.001, min((*itr)["expired_time"].get<double>() - current_time, result));
+      result = max(0.0, min((*itr)["expired_time"].get<double>() - current_time, result));
     }
   }
 

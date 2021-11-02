@@ -41,6 +41,7 @@
 
 // ----- Begin My Code -----
 #include "apps/cpm/PduMakeInfo_m.h"
+#include "apps/cpm/MyPduMake_m.h"
 // ----- End My Code -----
 
 
@@ -708,7 +709,7 @@ void LteMacVUeMode4::handleMessage(cMessage *msg)
 
 
             // std::cout << "----- set max rri -----" << std::endl;
-            // std::cout << __func__ << ", _my_channel_num: " << _my_channel_num << ", _my_rri: " << _my_rri << ", max_ch: " << max_ch << ", max_rri: " << max_rri << std::endl;
+            std::cout << __func__ << ", _my_channel_num: " << _my_channel_num << ", _my_rri: " << _my_rri << ", max_ch: " << max_ch << ", max_rri: " << max_rri << std::endl;
             // std::cout << __func__ << ", " << _my_channel_num / _my_rri << ", " << max_ch / max_rri << std::endl;
 
             if (schedulingGrant_ != NULL) {
@@ -823,6 +824,11 @@ void LteMacVUeMode4::handleSelfMessage()
                 emit(retainGrant, 1);
             }
         }
+        // ----- Begin My Code -----
+        if (periodCounter_ - 1 <= 0) {
+          sendUpperPackets(new MyPduMake("MyPduMake"));
+        }
+        // ----- End My Code -----
         if (--periodCounter_>0 && !mode4Grant->getFirstTransmission())
         {
             return;
@@ -843,7 +849,7 @@ void LteMacVUeMode4::handleSelfMessage()
     bool requestSdu = false;
     if (mode4Grant!=NULL && mode4Grant->getStartTime() <= NOW) // if a grant is configured
     {
-        std::cout << __func__ << ", " << simTime() << "start." << std::endl;
+        std::cout << __func__ << ", " << simTime() << ", periodCounter_ = 0 start." << std::endl;
         if (mode4Grant->getFirstTransmission())
         {
             mode4Grant->setFirstTransmission(false);

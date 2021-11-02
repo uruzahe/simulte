@@ -61,6 +61,13 @@ void LteRlcUmRealisticD2D::handleLowerMessage(cPacket *pkt)
         EV << "LteRlcUmRealisticD2D::handleLowerMessage - Sending packet " << pkt->getName() << " to port UM_Sap_up$o\n";
         send(pkt, up_[OUT]);
     }
+    else if (strcmp(pkt->getName(), "MyPduMake") == 0)
+    {
+        EV << NOW << " LteRlcUmRealisticD2D::handleLowerMessage - Received packet " << pkt->getName() << " from lower layer\n";
+        // forward packet to PDCP
+        EV << "LteRlcUmRealisticD2D::handleLowerMessage - Sending packet " << pkt->getName() << " to port UM_Sap_up$o\n";
+        send(pkt, up_[OUT]);
+    }
     // ----- End My Code -----
     else
         LteRlcUmRealistic::handleLowerMessage(pkt);
