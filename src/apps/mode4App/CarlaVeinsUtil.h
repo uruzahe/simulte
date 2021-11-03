@@ -227,6 +227,10 @@ void set_cpm_payloads_for_carla(std::string sumo_id, std::string data_sync_dir, 
 
 std::vector<std::string> get_cpm_payloads_from_carla(std::string sumo_id, std::string data_sync_dir, bool read_only);
 
+double floor_by_ord(double v1, int ord=4);
+
+void MyAssert(std::string text, bool cond);
+
 template <class X> X min(X v1, X v2);
 
 template <class X> X max(X v1, X v2);

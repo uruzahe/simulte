@@ -365,17 +365,18 @@ void Mode4App::handleLowerMessage(cMessage* msg)
       _current_rri = _pdu_interval.dbl();
 
       std::cout << __func__ << ", " << simTime() << ", sumo_id: " << sumo_id << ", start_time: " << pdu_make_info_pkt->getStartTime() << ", rri: " << _current_rri << ", ch: " << _current_ch << std::endl;
-      if (pdu_make_info_pkt->getStartTime() - TTI <= simTime()) {
+      if (pdu_make_info_pkt->getStartTime() - 0.002 <= simTime()) {
         cancelEvent(_pdu_sender);
         scheduleAt(simTime(), _pdu_sender);
       } else {
         cancelEvent(_pdu_sender);
-        scheduleAt(pdu_make_info_pkt->getStartTime() - TTI, _pdu_sender);
+        scheduleAt(pdu_make_info_pkt->getStartTime() - 0.002, _pdu_sender);
       }
       // _pdu_sender->setSchedulingPriority(0);
       // scheduleAt(start_time, _pdu_sender);
       // scheduleAt(start_time, _pdu_sender);
-    } else if (msg->isName("MyPduMake")){
+    } else if (msg->isName("MyPduMake")) {
+      std::cout << __func__ << ", " << simTime() << ", sumo_id: " << sumo_id << ", recv MyPduMake" << std::endl;
       cancelEvent(_pdu_sender);
       scheduleAt(simTime(), _pdu_sender);
 
@@ -558,7 +559,7 @@ void Mode4App::SendPacket(std::string payload, std::string type, int payload_byt
     packet["sender_id"] = sumo_id;
     packet["max_duration"] = 100;
     packet["min_duration"] = 20; // For ensuring grant in Mac layer.
-    packet["expired_time"] = simTime().dbl() + 0.1;
+    packet["expired_time"] = (simTime() + 0.10000).dbl();
 
     if (type == "cam") {
       packet["priority"] = 2;
@@ -638,25 +639,27 @@ void Mode4App::syncCarlaVeinsData(cMessage* msg)
 
 
 void Mode4App::resource_selection() {
-  // std::cout << __func__ << ", " << simTime() << ", Begin." << std::endl;
+  std::cout << __func__ << ", " << simTime() << ", sumo_id: " << sumo_id << ", Begin." << std::endl;
 
   json pdu_info = {};
   bool is_required_more_cr = false;
   bool is_short_duration = false;
 
-  // std::cout << __func__ << ", " << simTime() << ", sumo_id: " << sumo_id << ", isSduQueueEmpty: " << isSduQueueEmpty() << ", is_empty: " << _sdu_tx_ptr->is_empty(simTime().dbl()) << ", res time: " << _pdu_sender->getArrivalTime() << std::endl;
+  std::cout << __func__ << ", " << simTime() << ", sumo_id: " << sumo_id << ", isSduQueueEmpty: " << isSduQueueEmpty() << ", is_empty: " << _sdu_tx_ptr->is_empty(simTime().dbl()) << ", res time: " << _pdu_sender->getArrivalTime() << std::endl;
   if (isSduQueueEmpty() && _sdu_tx_ptr->is_empty(simTime().dbl()) == false) {
     pdu_info = _sdu_tx_ptr->get_duration_size_rri(
       simTime().dbl(),
       _sdu_tx_ptr->maximum_duration(simTime().dbl())
     );
 
-    // std::cout << __func__ << ", " << simTime() << ", sumo_id: " << sumo_id << ", pdu_info: " << pdu_info <<  ", res time: " << _pdu_sender->getArrivalTime() << std::endl;
+    std::cout << __func__ << ", " << simTime() << ", sumo_id: " << sumo_id << ", pdu_info: " << pdu_info <<  std::endl;
     is_required_more_cr = (_current_ch / _current_rri < pdu_info["ch"].get<int>() / pdu_info["rri"].get<double>());
     // is_short_duration = pdu_info["duration"].get<double>() < _pdu_sender->getArrivalTime().dbl() - simTime().dbl();
     is_short_duration = false;
   }
 
+
+  std::cout << __func__ << ", " << simTime() << ", is_required_more_cr: " << is_required_more_cr << ", is_short_duration: " << is_short_duration << std::endl;
   if (is_required_more_cr || is_short_duration) {
     SendPacket("", "reselection", 0, pdu_info["duration"].get<double>() * 1000, pdu_info);
     scheduleAt(simTime(), _removeDataFromQueue);

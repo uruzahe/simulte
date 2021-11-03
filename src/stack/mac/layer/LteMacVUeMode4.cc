@@ -671,6 +671,7 @@ void LteMacVUeMode4::handleMessage(cMessage *msg)
 
             // ----- Begin My Code -----
             bool is_required_more_cr = false;
+            bool is_short_duration = false;
             // ----- remove old cr -----
             // std::cout << "----- remove old cr -----" << std::endl;
             auto itr = _time2ch_rri.begin();
@@ -722,6 +723,7 @@ void LteMacVUeMode4::handleMessage(cMessage *msg)
               // std::cout << __func__ << ", " << simTime() << ", current_res: " << (int)(m4G->getNumSubchannels() / (m4G->getPeriod() * SLOT_2_MS / 100.0)) << ", this: " << max_ch / max_rri << std::endl;
 
               is_required_more_cr = is_required_more_cr || (int)(m4G->getNumSubchannels() / (m4G->getPeriod() * SLOT_2_MS / 100.0)) < (int)(max_ch / max_rri);
+              is_short_duration = (simTime() + remainingTime_ < m4G->getStartTime()) || (!m4G->getFirstTransmission() && periodCounter_ * SLOT_2_MS > remainingTime_);
               // std::cout << __func__ << ", is_required_more_cr: " << is_required_more_cr << ", current_res: " << (int)(m4G->getNumSubchannels() / (m4G->getPeriod() * SLOT_2_MS / 100.0)) << ", max: " << (int)(max_ch / max_rri) << std::endl;
             }
 
@@ -737,12 +739,18 @@ void LteMacVUeMode4::handleMessage(cMessage *msg)
             // std::cout << "----- end: set max rri -----" << std::endl;
             // ----- End My Code -----
 
-            // std::cout << __func__ << ", " << simTime() << ", schedulingGrant_: " << schedulingGrant_ << ", is_required_more_cr: " << is_required_more_cr << ", periodCounter_ * SLOT_2_MS: " << periodCounter_ * SLOT_2_MS << ", remainingTime_: " << remainingTime_ << std::endl;
+            std::cout << __func__ << ", " << simTime() << ", schedulingGrant_: " << schedulingGrant_ << ", is_required_more_cr: " << is_required_more_cr << ", is_short_duration: " << is_short_duration  << ", periodCounter_ * SLOT_2_MS: " << periodCounter_ * SLOT_2_MS << ", remainingTime_: " << remainingTime_ << std::endl;
             if (schedulingGrant_ == NULL || is_required_more_cr)
             {
                 macGenerateSchedulingGrant(remainingTime_, lteInfo->getPriority());
             }
-            else if ((schedulingGrant_ != NULL && periodCounter_ * SLOT_2_MS > remainingTime_))
+            // ----- Begin Modification -----
+            // ----- Original Code -----
+            // else if ((schedulingGrant_ != NULL && periodCounter_ * SLOT_2_MS > remainingTime_))
+            // ----- My Code -----
+            else if ((schedulingGrant_ != NULL && is_short_duration))
+            // ----- End Modoificaiton -----
+            // mode4Grant->getStartTime() <= NOW
             {
                 emit(grantBreakTiming, 1);
                 delete schedulingGrant_;
@@ -830,7 +838,8 @@ void LteMacVUeMode4::handleSelfMessage()
             }
         }
         // ----- Begin My Code -----
-        if (periodCounter_ - 2 <= 0) {
+        if (periodCounter_ * SLOT_2_MS == 2) {
+          std::cout << __func__ << ", " << simTime() << ", MyPduMake." << std::endl;
           sendUpperPackets(new MyPduMake("MyPduMake"));
         }
         // ----- End My Code -----

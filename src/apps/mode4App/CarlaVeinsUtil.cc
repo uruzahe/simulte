@@ -1,5 +1,7 @@
 #include "apps/mode4App/CarlaVeinsUtil.h"
 
+#include "common/LteCommon.h"
+
 using json = nlohmann::json;
 
 // ----- Begin: JsonDataStore-----
@@ -264,7 +266,8 @@ void VirtualTxSduQueue::delete_expired_fragments(double current_time)
     return;
   }
 
-  if (_fragment != NULL && _fragment["expired_time"].get<double>() <= current_time) {
+  if (_fragment != NULL && floor_by_ord(_fragment["expired_time"].get<double>()) <= floor_by_ord(current_time)) {
+    // std::cout << __func__ << ", current_time: " << current_time << ", expired_time: " << _fragment["expired_time"].get<double>() << ", delete: " << _fragment << std::endl;
     _fragment = NULL;
   }
   // std::cout << "_fragment is NULL" << std::endl;
@@ -274,7 +277,10 @@ void VirtualTxSduQueue::delete_expired_fragments(double current_time)
 
     while (itr != ptr->second.end()) {
       // std::cout << "in loop: " << (*itr) << std::endl;
-      if ((*itr)["expired_time"].get<double>() <= current_time) {
+      // std::cout << (floor_by_ord((*itr)["expired_time"].get<double>()) <= floor_by_ord(current_time)) << ", diff: " << (*itr)["expired_time"].get<double>() - current_time << std::endl;
+      if (floor_by_ord((*itr)["expired_time"].get<double>()) <= floor_by_ord(current_time)) {
+        // std::cout << __func__ << ", current_time: " << current_time << ", expired_time: " << (*itr)["expired_time"].get<double>() << ", delete: " << (*itr) << std::endl;
+        MyAssert(__func__, false);
         ptr->second.erase(itr);
       } else {
         itr++;
@@ -328,11 +334,12 @@ json VirtualTxSduQueue::formatted_pdu(int maximum_size, double current_time) {
 void VirtualTxSduQueue::enque(json packet)
 {
 
-  // std::cout << __func__ << ", Begin." << std::endl;
+  std::cout << __func__ << ", priority: " << packet["rlc"]["priority"].get<int>() << ", packet: " << packet << ", Begin." << std::endl;
   packet["packet_id"] = _packet_id;
 
   ASSERT(std::find(_priority2packets.begin(), _priority2packets.end(), packet["rlc"]["priority"].get<int>()) != _priority2packets.end());
   _priority2packets[packet["rlc"]["priority"].get<int>()].push_back(packet);
+
 
   _delete_expired_time = 0;
   _packet_id++;
@@ -515,6 +522,7 @@ double VirtualTxSduQueue::maximum_duration(double current_time) {
 
   for (auto ptr = _priority2packets.begin(); ptr != _priority2packets.end(); ptr++) {
     for (auto itr = ptr->second.begin(); itr != ptr->second.end(); itr++) {
+      // std::cout << __func__ << ", expired_time: " << (*itr)["expired_time"].get<double>() << ", current_time: " << current_time << ", diff: " << (*itr)["expired_time"].get<double>() - current_time << std::endl;
       result = max(0.0, min((*itr)["expired_time"].get<double>() - current_time, result));
     }
   }
@@ -524,11 +532,14 @@ double VirtualTxSduQueue::maximum_duration(double current_time) {
 
 
 bool VirtualTxSduQueue::is_empty(double current_time) {
+  // std::cout << "bbb" << std::endl;
   this->delete_expired_fragments(current_time);
+  // std::cout << "aaa" << std::endl;
 
   bool result = (_fragment == NULL);
 
   for (auto ptr = _priority2packets.begin(); ptr != _priority2packets.end(); ptr++) {
+    // std::cout << __func__ << ", priority: " << ptr->first << ", is_empty: " << ptr->second.empty() << std::endl;
     result = result && ptr->second.empty();
   }
 
@@ -536,7 +547,8 @@ bool VirtualTxSduQueue::is_empty(double current_time) {
 }
 
 json VirtualTxSduQueue::get_duration_size_rri(double current_time, double maximum_duration) {
-  // std::cout << __func__ << ", Begin." << std::endl;
+  // std::cout << __func__ << ", maximum_duration: "<< maximum_duration << ", Begin." << std::endl;
+
   this->delete_expired_fragments(current_time);
 
   bool be_found = false;
@@ -558,7 +570,7 @@ json VirtualTxSduQueue::get_duration_size_rri(double current_time, double maximu
     rri =  cbr2seize_ch_rri[(*ltr)]["rri"].get<double>();
     size = cbr2seize_ch_rri[(*ltr)]["size"].get<int>();
 
-    for (duration = maximum_duration; 0 < duration; duration -= rri) {
+    for (duration = maximum_duration; 0.001 <= duration; duration -= rri) {
       be_found = true;
       total_byte = 0;
 
@@ -1129,6 +1141,19 @@ template <class X> X max(X v1, X v2) {
     return v1;
   } else {
     return v2;
+  }
+}
+
+double floor_by_ord(double v1, int ord) {
+  // std::cout << __func__ << (floor(v1 * (int) pow(10, ord)) / (double) pow(10, ord)) << std::endl;
+
+  return floor(v1 * (int) pow(10, ord)) / (double) pow(10, ord);
+}
+
+void MyAssert(std::string text, bool cond) {
+  if (cond == false) {
+    std::cout << "Error: " << text << std::endl;
+    throw text;
   }
 }
 

@@ -34,7 +34,7 @@ simple Mode4App like Mode4BaseApp
         bool is_dynamic_simulation = default(false);
         int sensor_num = default(1);
         int max_cpm_size = default(400);
-        int max_hop = default(10);
+        int max_hop = default(1);
         // ----- End My Params -----
 
         @signal[sentMsg];
