@@ -114,7 +114,7 @@ void Mode4App::initialize(int stage)
         _sdu_tx_ptr = new VirtualTxSduQueue;
         _sdu_rx_ptr = new VirtualRxSduQueue;
         _pdu_sender = new cMessage("_pdu_sender");
-        // _pdu_sender->setSchedulingPriority(10);
+        _pdu_sender->setSchedulingPriority(10);
 
         _pdu_interval = 0.020;
 
@@ -148,7 +148,7 @@ void Mode4App::initialize(int stage)
 
 
 void Mode4App::StachSendPDU() {
-  std::cout << __func__ << ", " << simTime() << ", sumo_id: " << sumo_id << ", StachSendPDU Begin." << std::endl;
+  std::cout << __func__ << ", " << simTime() << ", sumo_id: " << sumo_id << ", StachSendPDU Begin, is empty: " << _sdu_tx_ptr->is_empty(simTime().dbl()) << std::endl;
 
   // if (isSduQueueEmpty() && _sdu_tx_ptr->is_empty(simTime().dbl()) == false) {
   if (_sdu_tx_ptr->is_empty(simTime().dbl()) == false) {
@@ -157,7 +157,7 @@ void Mode4App::StachSendPDU() {
     json pdu_info = {{"ch", _current_ch}, {"rri", _current_rri}};
 
     // std::cout << __func__ << ", pdu: " << pdu << ", pdu_info: " << pdu_info << std::endl;
-    std::cout << __func__ << ", now: " << simTime() << ", pdu_time: " << _pdu_sender->getArrivalTime() << std::endl;
+    // std::cout << __func__ << ", now: " << simTime() << ", pdu_time: " << _pdu_sender->getArrivalTime() << std::endl;
     SendPacket(pdu.dump(), "pdu", pdu["size"].get<int>(), pdu["duration"].get<double>(), pdu_info);
   }
 }
@@ -350,27 +350,34 @@ void Mode4App::handleLowerMessage(cMessage* msg)
 
     } else if (msg->isName("PduMakeInfo")){
       PduMakeInfo* pdu_make_info_pkt = check_and_cast<PduMakeInfo*>(msg);
-      double start_time = pdu_make_info_pkt->getStartTime();
+
+      if (pdu_make_info_pkt->getCSRs() <= 0) {
+        std::cout << __func__ << ", " << simTime() << ", CSRs: " << pdu_make_info_pkt->getCSRs() << std::endl;
+        return;
+      }
+      // sintime_t start_time = pdu_make_info_pkt->getStartTime();
       double now = simTime().dbl();
       double rri = pdu_make_info_pkt->getRri();
 
-      cancelEvent(_pdu_sender);
 
       _pdu_interval = rri / 1000.0;
       _current_ch = pdu_make_info_pkt->getCh();
       _current_rri = _pdu_interval.dbl();
 
-      std::cout << __func__ << ", " << simTime() << ", sumo_id: " << sumo_id << ", start_time: " << start_time << ", rri: " << _current_rri << ", ch: " << _current_ch << std::endl;
-      if (now <= start_time - TTI) {
-        scheduleAt(start_time - TTI, _pdu_sender);
+      std::cout << __func__ << ", " << simTime() << ", sumo_id: " << sumo_id << ", start_time: " << pdu_make_info_pkt->getStartTime() << ", rri: " << _current_rri << ", ch: " << _current_ch << std::endl;
+      if (pdu_make_info_pkt->getStartTime() - TTI <= simTime()) {
+        cancelEvent(_pdu_sender);
+        scheduleAt(simTime(), _pdu_sender);
       } else {
-        scheduleAt(now, _pdu_sender);
+        cancelEvent(_pdu_sender);
+        scheduleAt(pdu_make_info_pkt->getStartTime() - TTI, _pdu_sender);
       }
       // _pdu_sender->setSchedulingPriority(0);
       // scheduleAt(start_time, _pdu_sender);
       // scheduleAt(start_time, _pdu_sender);
     } else if (msg->isName("MyPduMake")){
-      StachSendPDU()
+      cancelEvent(_pdu_sender);
+      scheduleAt(simTime(), _pdu_sender);
 
     } else {
         // ----- Begin My Code -----
@@ -429,7 +436,9 @@ void Mode4App::handleSelfMessage(cMessage* msg)
         scheduleAt(simTime() + period_, selfSender_);
 
     } else if (!strcmp(msg->getName(), "_pdu_sender")) {
-      std::cout << __func__ << simTime() << "_pdu_sender" << std::endl;
+      // std::cout << __func__ << simTime() << "_pdu_sender" << std::endl;
+      // cancelEvent(_removeDataFromQueue);
+      // cancelEvent(_cbf_resend);
       this->RlcHandler("ToPhy");
       // _pdu_sender->setSchedulingPriority(0);
       // scheduleAt(simTime() + _pdu_interval, _pdu_sender);
@@ -635,16 +644,17 @@ void Mode4App::resource_selection() {
   bool is_required_more_cr = false;
   bool is_short_duration = false;
 
-  std::cout << __func__ << ", " << simTime() << ", sumo_id: " << sumo_id << ", isSduQueueEmpty: " << isSduQueueEmpty() << ", is_empty: " << _sdu_tx_ptr->is_empty(simTime().dbl()) << ", res time: " << _pdu_sender->getArrivalTime() << std::endl;
+  // std::cout << __func__ << ", " << simTime() << ", sumo_id: " << sumo_id << ", isSduQueueEmpty: " << isSduQueueEmpty() << ", is_empty: " << _sdu_tx_ptr->is_empty(simTime().dbl()) << ", res time: " << _pdu_sender->getArrivalTime() << std::endl;
   if (isSduQueueEmpty() && _sdu_tx_ptr->is_empty(simTime().dbl()) == false) {
     pdu_info = _sdu_tx_ptr->get_duration_size_rri(
       simTime().dbl(),
       _sdu_tx_ptr->maximum_duration(simTime().dbl())
     );
 
-    std::cout << __func__ << ", " << simTime() << ", sumo_id: " << sumo_id << ", pdu_info: " << pdu_info <<  ", res time: " << _pdu_sender->getArrivalTime() << std::endl;
+    // std::cout << __func__ << ", " << simTime() << ", sumo_id: " << sumo_id << ", pdu_info: " << pdu_info <<  ", res time: " << _pdu_sender->getArrivalTime() << std::endl;
     is_required_more_cr = (_current_ch / _current_rri < pdu_info["ch"].get<int>() / pdu_info["rri"].get<double>());
-    is_short_duration = pdu_info["duration"].get<double>() < _pdu_sender->getArrivalTime().dbl() - simTime().dbl();
+    // is_short_duration = pdu_info["duration"].get<double>() < _pdu_sender->getArrivalTime().dbl() - simTime().dbl();
+    is_short_duration = false;
   }
 
   if (is_required_more_cr || is_short_duration) {

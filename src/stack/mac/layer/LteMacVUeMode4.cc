@@ -424,7 +424,12 @@ void LteMacVUeMode4::macPduMake()
                 throw cRuntimeError("Unable to find mac buffer for cid %d", destCid);
 
             if (mbuf_[destCid]->empty())
-                throw cRuntimeError("Empty buffer for cid %d, while expected SDUs were %d", destCid, sduPerCid);
+                // ----- Betgin Modification -----
+                // ----- Original Code -----
+                // throw cRuntimeError("Empty buffer for cid %d, while expected SDUs were %d", destCid, sduPerCid);
+                // ----- Begin My Code -----
+                return;
+                // ----- End Modification -----
 
             pkt = mbuf_[destCid]->popFront();
 
@@ -825,7 +830,7 @@ void LteMacVUeMode4::handleSelfMessage()
             }
         }
         // ----- Begin My Code -----
-        if (periodCounter_ - 1 <= 0) {
+        if (periodCounter_ - 2 <= 0) {
           sendUpperPackets(new MyPduMake("MyPduMake"));
         }
         // ----- End My Code -----
@@ -849,7 +854,7 @@ void LteMacVUeMode4::handleSelfMessage()
     bool requestSdu = false;
     if (mode4Grant!=NULL && mode4Grant->getStartTime() <= NOW) // if a grant is configured
     {
-        std::cout << __func__ << ", " << simTime() << ", periodCounter_ = 0 start." << std::endl;
+        std::cout << __func__ << ", " << simTime() << ", start_time: " << mode4Grant->getStartTime() << ", periodCounter_ = 0 start." << std::endl;
         if (mode4Grant->getFirstTransmission())
         {
             mode4Grant->setFirstTransmission(false);
@@ -1042,10 +1047,16 @@ void LteMacVUeMode4::macHandleSps(cPacket* pkt)
     LteMode4SchedulingGrant* mode4Grant = check_and_cast<LteMode4SchedulingGrant*>(schedulingGrant_);
 
     // ----- Begin My Code -----
+    std::cout << CSRs.size() << ", " << (CSRs.size() <= 0) << std::endl;
     if (CSRs.size() <= 0) {
       // std::cout << __func__ << ", " << simTime() << "CSRs is 0." << std::endl;
       schedulingGrant_ = PastschedulingGrant_;
       _time2ch_rri.erase(simTime().dbl());
+
+      PduMakeInfo* pdu_make_info_pkt = new PduMakeInfo("PduMakeInfo");
+      pdu_make_info_pkt->setCSRs(0);
+      sendUpperPackets(pdu_make_info_pkt);
+
       delete pkt;
       return;
     }
@@ -1150,17 +1161,19 @@ void LteMacVUeMode4::macHandleSps(cPacket* pkt)
 
     // TODO: Setup for HARQ retransmission, if it can't be satisfied then selection must occur again.
 
-    CSRs.clear();
 
     // ----- Begin My Code -----
     PduMakeInfo* pdu_make_info_pkt = new PduMakeInfo("PduMakeInfo");
-    pdu_make_info_pkt->setStartTime(selectedStartTime.dbl());
+    pdu_make_info_pkt->setCSRs(CSRs.size());
+    pdu_make_info_pkt->setStartTime(selectedStartTime);
+    pdu_make_info_pkt->setStartTime(selectedStartTime);
     pdu_make_info_pkt->setRri(mode4Grant->getPeriod() * SLOT_2_MS);
     pdu_make_info_pkt->setCh(mode4Grant->getNumSubchannels());
-    // std::cout << __func__ << ", " << simTime() << ", mac rri: " << mode4Grant->getPeriod() * SLOT_2_MS << std::endl;
+    std::cout << __func__ << ", " << simTime() << ", start_time: " << selectedStartTime.dbl() << ", size: " << CSRs.size() << ", sim start_time: " << selectedStartTime << ", mac rri: " << mode4Grant->getPeriod() * SLOT_2_MS << std::endl;
     sendUpperPackets(pdu_make_info_pkt);
     // ----- Begin My Code -----
 
+    CSRs.clear();
     delete pkt;
 }
 

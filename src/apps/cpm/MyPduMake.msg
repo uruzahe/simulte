@@ -16,4 +16,4 @@
 //
 // TODO generated message class
 //
-packet PduMakeInfo {}
+packet MyPduMake {}
