@@ -176,6 +176,7 @@ protected:
 
    // ----- for eval -----
    std::vector<std::string> _cbr_logs;
+   std::vector<std::string> _grant_logs;
    // ----- My Code, End -----
 
 };

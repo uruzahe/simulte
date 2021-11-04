@@ -1144,17 +1144,18 @@ void LteMacVUeMode4::macHandleSps(cPacket* pkt)
 
     // TODO: Setup for HARQ retransmission, if it can't be satisfied then selection must occur again.
 
-    CSRs.clear();
 
     // ----- Begin My Code -----
     PduMakeInfo* pdu_make_info_pkt = new PduMakeInfo("PduMakeInfo");
     pdu_make_info_pkt->setStartTime(selectedStartTime.dbl());
     pdu_make_info_pkt->setRri(mode4Grant->getPeriod() * SLOT_2_MS);
+    // pdu_make_info_pkt->setRri(resourceReservationInterval_);
     pdu_make_info_pkt->setCh(mode4Grant->getNumSubchannels());
     // std::cout << __func__ << ", " << simTime() << ", mac rri: " << mode4Grant->getPeriod() * SLOT_2_MS << std::endl;
     sendUpperPackets(pdu_make_info_pkt);
     // ----- Begin My Code -----
 
+    CSRs.clear();
     delete pkt;
 }
 

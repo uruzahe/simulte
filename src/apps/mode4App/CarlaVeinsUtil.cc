@@ -234,15 +234,18 @@ VirtualTxSduQueue::VirtualTxSduQueue()
   _max_size = cbr2seize_ch_rri[cbrs.back()]["size"].get<int>();
   _max_ch =   cbr2seize_ch_rri[cbrs.back()]["ch"].get<int>();
   _max_rri =  cbr2seize_ch_rri[cbrs.back()]["rri"].get<double>();
+
+  _min_rri = cbr2seize_ch_rri[cbrs.front()]["rri"].get<double>();
 }
 
 
-json VirtualTxSduQueue::header(std::string sender_id, int priority) {
+json VirtualTxSduQueue::header(std::string sender_id, int priority, double expired_time) {
   json header;
 
   header["rlc"] = {
     {"sender_id", sender_id},
     {"priority", priority},
+    {"expired_time", expired_time},
   };
 
   return header;
@@ -325,8 +328,12 @@ json VirtualTxSduQueue::formatted_pdu(int maximum_size, double current_time) {
   return pdu;
 }
 
-void VirtualTxSduQueue::enque(json packet)
+bool VirtualTxSduQueue::enque(json packet, double current_time)
 {
+  // ----- Since too short expired time frequnetly occurs grant break, we ignore such the packet. -----
+  if (packet["rlc"]["expired_time"].get<double>() < current_time - this->_min_rri) {
+    return false;
+  }
 
   // std::cout << __func__ << ", Begin." << std::endl;
   packet["packet_id"] = _packet_id;
@@ -336,6 +343,8 @@ void VirtualTxSduQueue::enque(json packet)
 
   _delete_expired_time = 0;
   _packet_id++;
+
+  return true;
 }
 
 json VirtualTxSduQueue::update_pdu_by_fragment(json pdu, double current_time) {
@@ -553,12 +562,12 @@ json VirtualTxSduQueue::get_duration_size_rri(double current_time, double maximu
   result["ch"] =   cbr2seize_ch_rri[cbrs.back()]["ch"].get<int>();
   result["rri"] =  cbr2seize_ch_rri[cbrs.back()]["rri"].get<double>();
 
-
   for (auto ltr = cbrs.begin(); ltr != cbrs.end(); ltr++) {
     rri =  cbr2seize_ch_rri[(*ltr)]["rri"].get<double>();
     size = cbr2seize_ch_rri[(*ltr)]["size"].get<int>();
 
     for (duration = maximum_duration; 0 < duration; duration -= rri) {
+
       be_found = true;
       total_byte = 0;
 
@@ -865,9 +874,10 @@ double VirtualGeoNetwork::CBF_resend_time(json packet, inet::Coord recver_pos, d
     return resend_time;
 
   }
-  if (dist_sender_dest <= _DIST_MAX / 2.0) {
-    return resend_time;
-  }
+
+  // if (dist_sender_dest <= _DIST_MAX / 2.0) {
+  //   return resend_time;
+  // }
 
   double TO_CBF_GUC;
   if (dist_sender_recver <= _DIST_MAX) {
@@ -953,6 +963,11 @@ std::vector<std::string> VirtualGeoNetwork::duplication_packets_count() {
 // ----- End: VirtualGeoNetwork -----
 
 // ----- Begin: function -----
+std::string grants_file_path(std::string data_sync_dir, std::string sumo_id)
+{
+  return data_sync_dir + sumo_id + "_grant.json";
+}
+
 std::string dup_count_file_path(std::string data_sync_dir, std::string sumo_id)
 {
   return data_sync_dir + sumo_id + "_geo_dup.json";

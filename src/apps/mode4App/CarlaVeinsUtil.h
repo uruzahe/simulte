@@ -114,14 +114,16 @@ public:
   double _max_rri;
   double _max_ch;
 
+  double _min_rri;
+
   VirtualTxSduQueue();
 
-  json header(std::string sender_id, int priority);
+  json header(std::string sender_id, int priority, double expired_time);
   json update_header(json packet, std::string sender_id);
 
   json add_fragment_into_pdu(json pdu, json send_fragment, double current_time);
   void delete_expired_fragments(double current_time);
-  void enque(json packet);
+  bool enque(json packet, double current_time);
   // json formatted_packet(std::string payload, std::string type, int payload_byte_size, double current_time, double duration);
   json formatted_fragment(json packet, int leftted_size, int status_flag, int start_byte, int end_byte);
   json formatted_pdu(int maximum_size, double current_time);
@@ -170,9 +172,9 @@ public:
   std::unordered_map<double, std::vector<json>> _resend_time2packets;
   std::vector<double> _resend_times;
 
-  double _TO_CBF_MIN = TTI;
+  double _TO_CBF_MIN = 0.001;
   double _TO_CBF_MAX = 0.1;
-  double _DIST_MAX = 400;
+  double _DIST_MAX = 1000;
 
   void logging(std::string sender_id, int packet_id, double recv_time);
   json header(double sender_pos_x, double sender_pos_y, double dest_pos_x, double dest_pos_y, double hop_limit, double expired_time, std::string sender_id);
@@ -192,6 +194,8 @@ public:
 
 
 json add_time_attribute_to_json(json data, std::string attr_name, double t);
+
+std::string grants_file_path(std::string data_sync_dir, std::string sumo_id);
 
 std::string cbr_file_path(std::string data_sync_dir, std::string sumo_id);
 

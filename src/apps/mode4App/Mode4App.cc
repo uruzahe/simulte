@@ -122,12 +122,14 @@ void Mode4App::initialize(int stage)
         _resource_selection = new cMessage("_resource_selection");
         _resource_selection->setSchedulingPriority(10);
 
+
         // ----- initialize -----
         if (!sendBeacons && !is_dynamic_simulation) {
           loadCarlaVeinsData(true);
         }
 
         if (!sendBeacons) {
+            touch(grants_file_path(carlaVeinsDataDir, sumo_id));
             touch(cams_recv_json_file_path(carlaVeinsDataDir, sumo_id));
             touch(objects_recv_json_file_path(carlaVeinsDataDir, sumo_id));
             touch(dup_count_file_path(carlaVeinsDataDir, sumo_id));
@@ -253,10 +255,14 @@ json Mode4App::RlcHandler (std::string cmd, json packet={}) {
   json result = {};
 
   if (cmd == "FromGeocast") {
-    _sdu_tx_ptr->enque(_sdu_tx_ptr->update_header(packet, this->sumo_id));
-
-    cancelEvent(_resource_selection);
-    scheduleAt(simTime(), _resource_selection);
+    if (_sdu_tx_ptr->enque(_sdu_tx_ptr->update_header(packet, this->sumo_id), simTime().dbl())) {
+      if (simTime() <= _pdu_sender->getArrivalTime() && _pdu_sender->getArrivalTime() <= simTime() + 0.001) {
+        // ----- do nothing -----
+      } else {
+        cancelEvent(_resource_selection);
+        scheduleAt(simTime(), _resource_selection);
+      }
+    }
 
   } else if (cmd == "ToGeocast") {
     return this->GeoNetworkHandler("FromRlc", packet);
@@ -346,6 +352,18 @@ void Mode4App::handleLowerMessage(cMessage* msg)
       PduMakeInfo* pdu_make_info_pkt = check_and_cast<PduMakeInfo*>(msg);
       double start_time = pdu_make_info_pkt->getStartTime();
       double rri = pdu_make_info_pkt->getRri();
+
+
+      json log = {
+        {"time", simTime().dbl()},
+        {"_current_ch", _current_ch},
+        {"_current_rri", _current_rri},
+        {"_new_ch", pdu_make_info_pkt->getCh()},
+        {"_new_rri", pdu_make_info_pkt->getRri()},
+        {"_new_start_time", start_time},
+        {"_current_start_time", _pdu_sender->getArrivalTime().dbl()}
+      };
+      this->_grant_logs.push_back(log.dump());
 
       cancelEvent(_pdu_sender);
 
@@ -563,7 +581,8 @@ void Mode4App::SendPacket(std::string payload, std::string type, int payload_byt
         ),
         _sdu_tx_ptr->header(
           this->sumo_id,
-          packet["priority"].get<int>()
+          packet["priority"].get<int>(),
+          packet["expired_time"].get<double>()
         )
       )
     );
@@ -614,15 +633,19 @@ void Mode4App::resource_selection() {
   json pdu_info = {};
   bool is_required_more_cr = false;
   bool is_short_duration = false;
-  if (isSduQueueEmpty() && _sdu_tx_ptr->is_empty(simTime().dbl()) == false && simTime() + TTI < _pdu_sender->getArrivalTime()) {
+  if (isSduQueueEmpty() && _sdu_tx_ptr->is_empty(simTime().dbl()) == false && simTime() + _sdu_tx_ptr->_min_rri / 2.0 < _pdu_sender->getArrivalTime()) {
     pdu_info = _sdu_tx_ptr->get_duration_size_rri(
       simTime().dbl(),
       _sdu_tx_ptr->maximum_duration(simTime().dbl())
     );
 
-    std::cout << __func__ << ", " << simTime() << ", pdu_info: " << pdu_info <<  ", res time: " << _pdu_sender->getArrivalTime() << std::endl;
+    std::cout << __func__ << ", " << simTime() << ", sumo_id: " << sumo_id << ", pdu_info: " << pdu_info <<  ", res time: " << _pdu_sender->getArrivalTime() << std::endl;
     is_required_more_cr = (_current_ch / _current_rri < pdu_info["ch"].get<int>() / pdu_info["rri"].get<double>());
     is_short_duration = pdu_info["duration"].get<double>() < _pdu_sender->getArrivalTime().dbl() - simTime().dbl();
+
+  } else {
+    cancelEvent(_resource_selection);
+    scheduleAt(_pdu_sender->getArrivalTime() + 2 * TTI, _resource_selection);
   }
 
   if (is_required_more_cr || is_short_duration) {
@@ -635,6 +658,7 @@ void Mode4App::resource_selection() {
 void Mode4App::finish()
 {
     cancelAndDelete(selfSender_);
+    string_vector2file(grants_file_path(carlaVeinsDataDir, sumo_id), this->_grant_logs);
     string_vector2file(dup_count_file_path(carlaVeinsDataDir, sumo_id), _network_ptr->duplication_packets_count());
     string_vector2file(cbr_file_path(carlaVeinsDataDir, sumo_id), _cbr_logs);
 }
