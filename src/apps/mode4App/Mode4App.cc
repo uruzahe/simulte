@@ -198,7 +198,7 @@ json Mode4App::GeoNetworkHandler (std::string cmd, json packet={}) {
   } else if (cmd == "FromRlc") {
     _network_ptr->enque(packet, simTime().dbl());
 
-    double resend_time = _network_ptr->CBF_resend_time(packet, mobility->getCurrentPosition(), simTime().dbl());
+    double resend_time = (int) (_network_ptr->CBF_resend_time(packet, mobility->getCurrentPosition(), simTime().dbl()) / TTI) * TTI;
     // std::cout << __func__ << ", resend_time: " << resend_time << ", packet: " << packet << std::endl;
 
     if (simTime().dbl() < resend_time) {

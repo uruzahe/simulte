@@ -171,10 +171,21 @@ public:
   std::unordered_map<std::string, std::unordered_map<int, int>> _sender_id2packet_id2packet_count;
   std::unordered_map<double, std::vector<json>> _resend_time2packets;
   std::vector<double> _resend_times;
+  double _last_resend_time = 0;
 
   double _TO_CBF_MIN = 0.001;
-  double _TO_CBF_MAX = 0.1;
+  // double _TO_CBF_MAX = 0.1;
+  double _TO_CBF_MAX = 0.010;
   double _DIST_MAX = 1000;
+  // double _DIST_MAX = 400;
+  // double _DIST_MAX = 200;
+  double _itsGnBroadcastCBFDefSectorAngle = 30;
+  double _itsGnMinPacketRepetitionInterval = 0.1;
+  int _itsGnLocationServiceMaxRetrans = 2;
+  // ----- itsGnLocationServiceMaxRetrans -----
+  // ----- Default itsGnLocationServiceMaxRetrans is 10 [1]. -----
+  // ----- However, we set the value as 1 to mitigate broadcast storm -----
+  // ----- [1] Draft ETSI EN 302 636-4-1 V1.4.0 (2019-05)
 
   void logging(std::string sender_id, int packet_id, double recv_time);
   json header(double sender_pos_x, double sender_pos_y, double dest_pos_x, double dest_pos_y, double hop_limit, double expired_time, std::string sender_id);

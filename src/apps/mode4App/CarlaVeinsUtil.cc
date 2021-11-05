@@ -824,6 +824,9 @@ bool VirtualGeoNetwork::is_already_received(json packet) {
 }
 
 double VirtualGeoNetwork::CBF_resend_time(json packet, inet::Coord recver_pos, double current_time) {
+  // ----- Conducting GN-DATA.confirm [1].
+  // ----- [1] Draft ETSI EN 302 636-4-1 V1.4.0 (2019-05)
+
   // std::cout << __func__ << ", packet" << std::endl;
 
   double resend_time = -1;
@@ -839,6 +842,11 @@ double VirtualGeoNetwork::CBF_resend_time(json packet, inet::Coord recver_pos, d
   // ----- validation duplication receive -----
   // std::cout << __func__ << ", packet" << std::endl;
   if (!this->is_resend(packet)) {
+    return resend_time;
+  }
+
+  // ----- (4) of GN-DATA.confirm -----
+  if (current_time - this->_last_resend_time < this->_itsGnMinPacketRepetitionInterval) {
     return resend_time;
   }
 
@@ -866,7 +874,7 @@ double VirtualGeoNetwork::CBF_resend_time(json packet, inet::Coord recver_pos, d
   double cos_angle = (diff_sender_dest_x * diff_sender_recver_x + diff_sender_dest_y * diff_sender_recver_y) / (dist_sender_dest * dist_sender_recver);
 
   // std::cout << __func__ << ", cos_angle: " << cos_angle << std::endl;
-  if (cos_angle < 0.5) {
+  if (cos_angle < cos(_itsGnBroadcastCBFDefSectorAngle)) {
     return resend_time;
 
   }
@@ -888,6 +896,14 @@ double VirtualGeoNetwork::CBF_resend_time(json packet, inet::Coord recver_pos, d
 
   // ----- validation expired_time -----
   // std::cout << __func__ << ", packet" << std::endl;
+
+
+  // ----- (3) of GN-DATA.confirm -----
+  // ----- We use expired_time instead of itsGnDefaultPacketLifetime.
+  // ----- In generally, itsGnDefaultPacketLifetime is between 60 and 600 [1].
+  // ----- On the other hand, the expired_time is at most 0.1 sec.
+  // ----- Therefore, it becoes difficult to handle such packets.
+  // ----- [1] Draft ETSI EN 302 636-4-1 V1.4.0 (2019-05)
   if (packet["geocast"]["expired_time"].get<double>() < current_time + TO_CBF_GUC) {
     return resend_time;
   }
@@ -915,7 +931,7 @@ bool VirtualGeoNetwork::is_resend(json packet) {
   int packet_id = packet["geocast"]["packet_id"].get<int>();
 
   // std::cout << __func__ << ", Geonet Duplication: " << _sender_id2packet_id2packet_count[sender_id][packet_id] << std::endl;
-  if (2 <= _sender_id2packet_id2packet_count[sender_id][packet_id]) {
+  if (this->_itsGnLocationServiceMaxRetrans <= _sender_id2packet_id2packet_count[sender_id][packet_id]) {
     return false;
   } else {
     return true;
@@ -931,6 +947,10 @@ std::vector<json> VirtualGeoNetwork::resend_deque(double resend_time) {
       continue;
     } else {
       packets.push_back(*itr);
+
+      this->_last_resend_time = resend_time;
+      // ----- Considering -----
+      break;
     }
   }
 
