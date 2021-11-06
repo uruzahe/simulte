@@ -661,7 +661,7 @@ void LteMacVUeMode4::handleMessage(cMessage *msg)
             remainingTime_ = lteInfo->getDuration() - dur;
             // ----- End Modification -----
 
-            // std::cout << __func__ << ", " << simTime() << ", getDuration: " << lteInfo->getDuration() << ", receivedTime_: " <<receivedTime_ << ", elapsedTime: " << elapsedTime << ", duration: " << duration << ", dur: " << dur << std::endl;
+            std::cout << __func__ << ", " << simTime() << ", getDuration: " << lteInfo->getDuration() << ", receivedTime_: " <<receivedTime_ << ", elapsedTime: " << elapsedTime << ", duration: " << duration << ", dur: " << dur << std::endl;
 
             // ----- Begin My Code -----
             bool is_required_more_cr = false;
@@ -1148,8 +1148,8 @@ void LteMacVUeMode4::macHandleSps(cPacket* pkt)
     // ----- Begin My Code -----
     PduMakeInfo* pdu_make_info_pkt = new PduMakeInfo("PduMakeInfo");
     pdu_make_info_pkt->setStartTime(selectedStartTime.dbl());
-    pdu_make_info_pkt->setRri(mode4Grant->getPeriod() * SLOT_2_MS);
-    // pdu_make_info_pkt->setRri(resourceReservationInterval_);
+    // pdu_make_info_pkt->setRri(mode4Grant->getPeriod() * SLOT_2_MS);
+    pdu_make_info_pkt->setRri(resourceReservationInterval_ * 100.0);
     pdu_make_info_pkt->setCh(mode4Grant->getNumSubchannels());
     // std::cout << __func__ << ", " << simTime() << ", mac rri: " << mode4Grant->getPeriod() * SLOT_2_MS << std::endl;
     sendUpperPackets(pdu_make_info_pkt);

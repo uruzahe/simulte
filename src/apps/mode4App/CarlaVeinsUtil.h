@@ -176,7 +176,7 @@ public:
   double _TO_CBF_MIN = 0.001;
   double _TO_CBF_MAX = 0.1;
   // double _TO_CBF_MAX = 0.010;
-  
+
   // double _DIST_MAX = 1000;
   // double _DIST_MAX = 400;
   double _DIST_MAX = 0;
@@ -208,6 +208,8 @@ public:
 json add_time_attribute_to_json(json data, std::string attr_name, double t);
 
 std::string grants_file_path(std::string data_sync_dir, std::string sumo_id);
+
+std::string grants_rec_file_path(std::string data_sync_dir, std::string sumo_id);
 
 std::string cbr_file_path(std::string data_sync_dir, std::string sumo_id);
 

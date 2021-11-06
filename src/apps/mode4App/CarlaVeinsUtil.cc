@@ -568,7 +568,7 @@ json VirtualTxSduQueue::get_duration_size_rri(double current_time, double maximu
 
     for (duration = maximum_duration; 0 < duration; duration -= rri) {
 
-      be_found = true;
+      be_found = false;
       total_byte = 0;
 
       if (_fragment != NULL) {
@@ -578,9 +578,11 @@ json VirtualTxSduQueue::get_duration_size_rri(double current_time, double maximu
 
         // std::cout << __func__ << ", total_byte" << total_byte << ", rri_count: " << rri_count << ", size" << size << ", rri" << rri << std::endl;
         be_found = (total_byte <= rri_count * size);
+
+
+        if (be_found == false) { continue; }
       }
 
-      if (be_found == false) { continue; }
 
       for (auto ptr = _priority2packets.begin(); ptr != _priority2packets.end(); ptr++) {
         for (auto itr = ptr->second.begin(); itr != ptr->second.end(); itr++) {
@@ -986,6 +988,12 @@ std::vector<std::string> VirtualGeoNetwork::duplication_packets_count() {
 std::string grants_file_path(std::string data_sync_dir, std::string sumo_id)
 {
   return data_sync_dir + sumo_id + "_grant.json";
+}
+
+
+std::string grants_rec_file_path(std::string data_sync_dir, std::string sumo_id)
+{
+  return data_sync_dir + sumo_id + "_grant_rec.json";
 }
 
 std::string dup_count_file_path(std::string data_sync_dir, std::string sumo_id)

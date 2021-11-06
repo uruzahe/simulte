@@ -130,6 +130,7 @@ void Mode4App::initialize(int stage)
 
         if (!sendBeacons) {
             touch(grants_file_path(carlaVeinsDataDir, sumo_id));
+            touch(grants_rec_file_path(carlaVeinsDataDir, sumo_id));
             touch(cams_recv_json_file_path(carlaVeinsDataDir, sumo_id));
             touch(objects_recv_json_file_path(carlaVeinsDataDir, sumo_id));
             touch(dup_count_file_path(carlaVeinsDataDir, sumo_id));
@@ -141,13 +142,16 @@ void Mode4App::initialize(int stage)
         // ----- My Code, End. -----
 
         double delay = TTI * intuniform(0, 1.0 / TTI, 0);
+        std::cout << __func__ << ", " << simTime() << ", delay: " << delay << std::endl;
         scheduleAt((simTime() + delay).trunc(SIMTIME_US), selfSender_);
-        scheduleAt((simTime() + delay).trunc(SIMTIME_US), _pdu_sender);
+        scheduleAt((simTime() + delay + 0.1).trunc(SIMTIME_US), _pdu_sender);
     }
 }
 
 
 void Mode4App::StachSendPDU() {
+  std::cout << __func__ << ", " << simTime() << ", sumo_id: " << sumo_id << ", isSduQueueEmpty: " << isSduQueueEmpty() << ", is_empty: " << _sdu_tx_ptr->is_empty(simTime().dbl()) << std::endl;
+
   if (isSduQueueEmpty() && _sdu_tx_ptr->is_empty(simTime().dbl()) == false) {
     int pdu_size = _sdu_tx_ptr->_ch2size[_current_ch];
     json pdu = _sdu_tx_ptr->generate_PDU(pdu_size, simTime().dbl());
@@ -155,7 +159,7 @@ void Mode4App::StachSendPDU() {
 
     // std::cout << __func__ << ", pdu: " << pdu << ", pdu_info: " << pdu_info << std::endl;
     // std::cout << __func__ << ", now: " << simTime() << ", pdu_time: " << _pdu_sender->getArrivalTime() << std::endl;
-    SendPacket(pdu.dump(), "pdu", pdu["size"].get<int>(), pdu["duration"].get<double>(), pdu_info);
+    SendPacket(pdu.dump(), "pdu", pdu["size"].get<int>(), 100, pdu_info);
   }
 }
 
@@ -254,9 +258,13 @@ json Mode4App::GeoNetworkHandler (std::string cmd, json packet={}) {
 json Mode4App::RlcHandler (std::string cmd, json packet={}) {
   json result = {};
 
+  std::cout << __func__ << ", " << simTime() << ", sumo_id: " << sumo_id << ", pakcet" << packet << std::endl;
+
   if (cmd == "FromGeocast") {
     if (_sdu_tx_ptr->enque(_sdu_tx_ptr->update_header(packet, this->sumo_id), simTime().dbl())) {
       if (simTime() <= _pdu_sender->getArrivalTime() && _pdu_sender->getArrivalTime() <= simTime() + 0.001) {
+        cancelEvent(_resource_selection);
+        scheduleAt(_pdu_sender->getArrivalTime() + 2 * TTI, _resource_selection);
         // ----- do nothing -----
       } else {
         cancelEvent(_resource_selection);
@@ -359,7 +367,7 @@ void Mode4App::handleLowerMessage(cMessage* msg)
         {"_current_ch", _current_ch},
         {"_current_rri", _current_rri},
         {"_new_ch", pdu_make_info_pkt->getCh()},
-        {"_new_rri", pdu_make_info_pkt->getRri()},
+        {"_new_rri", pdu_make_info_pkt->getRri() / 1000.0},
         {"_new_start_time", start_time},
         {"_current_start_time", _pdu_sender->getArrivalTime().dbl()}
       };
@@ -633,7 +641,10 @@ void Mode4App::resource_selection() {
   json pdu_info = {};
   bool is_required_more_cr = false;
   bool is_short_duration = false;
-  if (isSduQueueEmpty() && _sdu_tx_ptr->is_empty(simTime().dbl()) == false && simTime() + _sdu_tx_ptr->_min_rri / 2.0 < _pdu_sender->getArrivalTime()) {
+  bool is_reservable_time = simTime() + _sdu_tx_ptr->_min_rri / 2.0 < _pdu_sender->getArrivalTime();
+  bool is_sdu_empty = isSduQueueEmpty();
+
+  if (is_sdu_empty && _sdu_tx_ptr->is_empty(simTime().dbl()) == false && is_reservable_time) {
     pdu_info = _sdu_tx_ptr->get_duration_size_rri(
       simTime().dbl(),
       _sdu_tx_ptr->maximum_duration(simTime().dbl())
@@ -643,7 +654,12 @@ void Mode4App::resource_selection() {
     is_required_more_cr = (_current_ch / _current_rri < pdu_info["ch"].get<int>() / pdu_info["rri"].get<double>());
     is_short_duration = pdu_info["duration"].get<double>() < _pdu_sender->getArrivalTime().dbl() - simTime().dbl();
 
-  } else {
+    pdu_info["time"] = simTime().dbl();
+    pdu_info["_current_duration"] = _pdu_sender->getArrivalTime().dbl() - simTime().dbl();
+    this->_grant_rec_logs.push_back(pdu_info.dump());
+  }
+
+  if (!(is_sdu_empty && is_reservable_time)) {
     cancelEvent(_resource_selection);
     scheduleAt(_pdu_sender->getArrivalTime() + 2 * TTI, _resource_selection);
   }
@@ -659,6 +675,7 @@ void Mode4App::finish()
 {
     cancelAndDelete(selfSender_);
     string_vector2file(grants_file_path(carlaVeinsDataDir, sumo_id), this->_grant_logs);
+    string_vector2file(grants_rec_file_path(carlaVeinsDataDir, sumo_id), this->_grant_rec_logs);
     string_vector2file(dup_count_file_path(carlaVeinsDataDir, sumo_id), _network_ptr->duplication_packets_count());
     string_vector2file(cbr_file_path(carlaVeinsDataDir, sumo_id), _cbr_logs);
 }
