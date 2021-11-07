@@ -676,48 +676,39 @@ void LteMacVUeMode4::handleMessage(cMessage *msg)
               }
             }
 
-
             // ----- If the resource is too few compared with max resource, clear the _time2ch_rri -----
-
-
-
-            // std::cout << "----- find max rri -----" << std::endl;
             int max_ch = 1;
             double max_rri = 1.0;
-            for (auto itr = _time2ch_rri.begin(); itr != _time2ch_rri.end(); itr++) {
-              // std::cout << __func__ << ": now: " << simTime().dbl() << ", first: " << itr->first << ", size: " << _time2ch_rri.size() << std::endl;
-              if (max_ch / max_rri < itr->second["ch"].get<int>() / itr->second["rri"].get<double>()) {
-                max_ch = itr->second["ch"].get<int>();
-                max_rri = itr->second["rri"].get<double>();
+            if (schedulingGrant_ == NULL) {
+              for (auto itr = _time2ch_rri.begin(); itr != _time2ch_rri.end(); itr++) {
+                // std::cout << __func__ << ": now: " << simTime().dbl() << ", first: " << itr->first << ", size: " << _time2ch_rri.size() << std::endl;
+                if (max_ch / max_rri < itr->second["ch"].get<int>() / itr->second["rri"].get<double>()) {
+                  max_ch = itr->second["ch"].get<int>();
+                  max_rri = itr->second["rri"].get<double>();
+                }
               }
+            } else {
+              LteMode4SchedulingGrant* m4G = check_and_cast<LteMode4SchedulingGrant*>(schedulingGrant_);
+              max_ch = m4G->getNumSubchannels();
+              max_rri = (m4G->getPeriod() * SLOT_2_MS / 100.0);
             }
 
             int required_res = lteInfo->getMyChannelNum() / lteInfo->getMyRri();
             if (max_ch / max_rri < required_res) {
               max_ch = lteInfo->getMyChannelNum();
               max_rri = lteInfo->getMyRri();
-            } else if (max_ch / max_rri < required_res + max_ch){
+
+              is_required_more_cr = true;
+            } else if (max_ch / max_rri - max_ch < required_res){
               // ----- do nothing -----
             } else {
               max_ch = lteInfo->getMyChannelNum();
               max_rri = lteInfo->getMyRri();
+
               _time2ch_rri.clear();
+              is_required_more_cr = true;
             }
             _time2ch_rri[simTime().dbl()] = (json){ {"ch", lteInfo->getMyChannelNum()}, {"rri", lteInfo->getMyRri()} };
-
-
-
-            // std::cout << "----- set max rri -----" << std::endl;
-            // std::cout << __func__ << ", _my_channel_num: " << _my_channel_num << ", _my_rri: " << _my_rri << ", max_ch: " << max_ch << ", max_rri: " << max_rri << std::endl;
-            // std::cout << __func__ << ", " << _my_channel_num / _my_rri << ", " << max_ch / max_rri << std::endl;
-
-            if (schedulingGrant_ != NULL) {
-              LteMode4SchedulingGrant* m4G = check_and_cast<LteMode4SchedulingGrant*>(schedulingGrant_);
-              // std::cout << __func__ << ", " << simTime() << ", current_res: " << (int)(m4G->getNumSubchannels() / (m4G->getPeriod() * SLOT_2_MS / 100.0)) << ", this: " << max_ch / max_rri << std::endl;
-
-              is_required_more_cr = is_required_more_cr || (int)(m4G->getNumSubchannels() / (m4G->getPeriod() * SLOT_2_MS / 100.0)) < (int)(max_ch / max_rri);
-              // std::cout << __func__ << ", is_required_more_cr: " << is_required_more_cr << ", current_res: " << (int)(m4G->getNumSubchannels() / (m4G->getPeriod() * SLOT_2_MS / 100.0)) << ", max: " << (int)(max_ch / max_rri) << std::endl;
-            }
 
             is_required_more_cr = is_required_more_cr || (schedulingGrant_ == NULL);
             if (is_required_more_cr) {
@@ -731,13 +722,14 @@ void LteMacVUeMode4::handleMessage(cMessage *msg)
             // std::cout << "----- end: set max rri -----" << std::endl;
             // ----- End My Code -----
 
-            // std::cout << __func__ << ", " << simTime() << ", schedulingGrant_: " << schedulingGrant_ << ", is_required_more_cr: " << is_required_more_cr << ", periodCounter_ * SLOT_2_MS: " << periodCounter_ * SLOT_2_MS << ", remainingTime_: " << remainingTime_ << std::endl;
+            std::cout << __func__ << ", " << simTime() << ", schedulingGrant_: " << schedulingGrant_ << ", is_required_more_cr: " << is_required_more_cr << ", periodCounter_ * SLOT_2_MS: " << periodCounter_ * SLOT_2_MS << ", remainingTime_: " << remainingTime_ << std::endl;
             if (schedulingGrant_ == NULL || is_required_more_cr)
             {
                 macGenerateSchedulingGrant(remainingTime_, lteInfo->getPriority());
             }
             else if ((schedulingGrant_ != NULL && periodCounter_ * SLOT_2_MS > remainingTime_))
             {
+              // throw cRuntimeError("aaa");
                 emit(grantBreakTiming, 1);
                 delete schedulingGrant_;
                 schedulingGrant_ = NULL;
@@ -822,6 +814,13 @@ void LteMacVUeMode4::handleSelfMessage()
                 emit(rrcSelected, expiration);
                 emit(retainGrant, 1);
             }
+            // ----- Begin My Code -----
+            else {
+              PduMakeInfo* pdu_make_info_pkt = new PduMakeInfo("PduMakeInfo");
+              pdu_make_info_pkt->setType("will_be_expired");
+              sendUpperPackets(pdu_make_info_pkt);
+            }
+            // ----- End My Code -----
         }
         if (--periodCounter_>0 && !mode4Grant->getFirstTransmission())
         {
@@ -838,6 +837,12 @@ void LteMacVUeMode4::handleSelfMessage()
             emit(grantBreak, 1);
             mode4Grant->setExpiration(0);
             expiredGrant_ = true;
+
+            // ----- Begin My Code -----
+            PduMakeInfo* pdu_make_info_pkt = new PduMakeInfo("PduMakeInfo");
+            pdu_make_info_pkt->setType("expired");
+            sendUpperPackets(pdu_make_info_pkt);
+            // ----- End My Code -----
         }
     }
     bool requestSdu = false;
@@ -1147,6 +1152,7 @@ void LteMacVUeMode4::macHandleSps(cPacket* pkt)
 
     // ----- Begin My Code -----
     PduMakeInfo* pdu_make_info_pkt = new PduMakeInfo("PduMakeInfo");
+    pdu_make_info_pkt->setType("selectted");
     pdu_make_info_pkt->setStartTime(selectedStartTime.dbl());
     // pdu_make_info_pkt->setRri(mode4Grant->getPeriod() * SLOT_2_MS);
     pdu_make_info_pkt->setRri(resourceReservationInterval_ * 100.0);

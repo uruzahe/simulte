@@ -17,6 +17,7 @@
 // TODO generated message class
 //
 packet PduMakeInfo {
+    string type;
     double startTime;
     double rri;
     double ch;

@@ -114,7 +114,7 @@ void Mode4App::initialize(int stage)
         _sdu_rx_ptr = new VirtualRxSduQueue;
         _pdu_sender = new cMessage("_pdu_sender");
 
-        _pdu_interval = 0.020;
+        _pdu_interval = 0.1;
 
         _removeDataFromQueue = new cMessage("_removeDataFromQueue");
         // _removeDataFromQueue->setSchedulingPriority(10);
@@ -144,7 +144,7 @@ void Mode4App::initialize(int stage)
         double delay = TTI * intuniform(0, 1.0 / TTI, 0);
         std::cout << __func__ << ", " << simTime() << ", delay: " << delay << std::endl;
         scheduleAt((simTime() + delay).trunc(SIMTIME_US), selfSender_);
-        scheduleAt((simTime() + delay + 0.1).trunc(SIMTIME_US), _pdu_sender);
+        scheduleAt((simTime() + delay + period_ / 2.0).trunc(SIMTIME_US), _pdu_sender);
     }
 }
 
@@ -159,7 +159,7 @@ void Mode4App::StachSendPDU() {
 
     // std::cout << __func__ << ", pdu: " << pdu << ", pdu_info: " << pdu_info << std::endl;
     // std::cout << __func__ << ", now: " << simTime() << ", pdu_time: " << _pdu_sender->getArrivalTime() << std::endl;
-    SendPacket(pdu.dump(), "pdu", pdu["size"].get<int>(), 100, pdu_info);
+    SendPacket(pdu.dump(), "pdu", pdu["size"].get<int>(), pdu["duration"].get<double>(), pdu_info);
   }
 }
 
@@ -258,15 +258,18 @@ json Mode4App::GeoNetworkHandler (std::string cmd, json packet={}) {
 json Mode4App::RlcHandler (std::string cmd, json packet={}) {
   json result = {};
 
-  std::cout << __func__ << ", " << simTime() << ", sumo_id: " << sumo_id << ", pakcet" << packet << std::endl;
+  // std::cout << __func__ << ", " << simTime() << ", sumo_id: " << sumo_id << ", pakcet" << packet << std::endl;
 
   if (cmd == "FromGeocast") {
+    std::cout << __func__ << ", " << simTime() << ", sumo_id: " << sumo_id << ", arrive time" << _pdu_sender->getArrivalTime() << std::endl;
     if (_sdu_tx_ptr->enque(_sdu_tx_ptr->update_header(packet, this->sumo_id), simTime().dbl())) {
-      if (simTime() <= _pdu_sender->getArrivalTime() && _pdu_sender->getArrivalTime() <= simTime() + 0.001) {
+      if (simTime() <= _pdu_sender->getArrivalTime() && _pdu_sender->getArrivalTime() <= simTime() + 2 * TTI) {
+        // std::cout << "aaa" << std::endl;
         cancelEvent(_resource_selection);
         scheduleAt(_pdu_sender->getArrivalTime() + 2 * TTI, _resource_selection);
         // ----- do nothing -----
       } else {
+        // std::cout << "bbb" << std::endl;
         cancelEvent(_resource_selection);
         scheduleAt(simTime(), _resource_selection);
       }
@@ -358,30 +361,49 @@ void Mode4App::handleLowerMessage(cMessage* msg)
 
     } else if (msg->isName("PduMakeInfo")){
       PduMakeInfo* pdu_make_info_pkt = check_and_cast<PduMakeInfo*>(msg);
-      double start_time = pdu_make_info_pkt->getStartTime();
-      double rri = pdu_make_info_pkt->getRri();
 
+      if (pdu_make_info_pkt->getType() == (std::string)"selectted") {
+        this->_will_be_expired = false;
 
-      json log = {
-        {"time", simTime().dbl()},
-        {"_current_ch", _current_ch},
-        {"_current_rri", _current_rri},
-        {"_new_ch", pdu_make_info_pkt->getCh()},
-        {"_new_rri", pdu_make_info_pkt->getRri() / 1000.0},
-        {"_new_start_time", start_time},
-        {"_current_start_time", _pdu_sender->getArrivalTime().dbl()}
-      };
-      this->_grant_logs.push_back(log.dump());
+        double start_time = pdu_make_info_pkt->getStartTime();
+        double rri = pdu_make_info_pkt->getRri();
+        json log = {
+          {"time", simTime().dbl()},
+          {"_current_ch", _current_ch},
+          {"_current_rri", _current_rri},
+          {"_new_ch", pdu_make_info_pkt->getCh()},
+          {"_new_rri", pdu_make_info_pkt->getRri() / 1000.0},
+          {"_new_start_time", start_time},
+          {"_current_start_time", _pdu_sender->getArrivalTime().dbl()}
+        };
+        this->_grant_logs.push_back(log.dump());
 
-      cancelEvent(_pdu_sender);
+        cancelEvent(_pdu_sender);
 
-      _pdu_interval = rri / 1000.0;
-      _current_ch = pdu_make_info_pkt->getCh();
-      _current_rri = _pdu_interval.dbl();
+        _pdu_interval = rri / 1000.0;
+        _current_ch = pdu_make_info_pkt->getCh();
+        _current_rri = _pdu_interval.dbl();
 
-      std::cout << __func__ << ", start_time: " << start_time << ", rri: " << _current_rri << ", ch: " << _current_ch << std::endl;
-      // _pdu_sender->setSchedulingPriority(0);
-      scheduleAt(start_time, _pdu_sender);
+        std::cout << __func__ << ", start_time: " << start_time << ", rri: " << _current_rri << ", ch: " << _current_ch << std::endl;
+        // _pdu_sender->setSchedulingPriority(0);
+        if (SimTime(start_time - 2 * TTI) <= simTime()) {
+          scheduleAt(simTime(), _pdu_sender);
+        } else {
+          scheduleAt(SimTime(start_time - 2 * TTI), _pdu_sender);
+        }
+
+      } else if (pdu_make_info_pkt->getType() == (std::string) "expired") {
+        resource_selection();
+
+      } else if (pdu_make_info_pkt->getType() == (std::string) "will_be_expired") {
+        std::cout << __func__ << ", will be expired. "<< std::endl;
+        this->_will_be_expired = true;
+
+      } else {
+        std::cout << __func__ << ", unknown type: "  << pdu_make_info_pkt->getType() << std::endl;
+        throw cRuntimeError("unknown type");
+
+      }
     } else {
         // ----- Begin My Code -----
         if (veins::VeinsCarlaPacket* vc_pkt = dynamic_cast<veins::VeinsCarlaPacket*>(msg)) {
@@ -644,7 +666,9 @@ void Mode4App::resource_selection() {
   bool is_reservable_time = simTime() + _sdu_tx_ptr->_min_rri / 2.0 < _pdu_sender->getArrivalTime();
   bool is_sdu_empty = isSduQueueEmpty();
 
-  if (is_sdu_empty && _sdu_tx_ptr->is_empty(simTime().dbl()) == false && is_reservable_time) {
+  std::cout << __func__ << ", " << simTime() << ", sumo_id: " << sumo_id << is_sdu_empty << _sdu_tx_ptr->is_empty(simTime().dbl())  << is_reservable_time << std::endl;
+  std::cout << _sdu_tx_ptr->_min_rri << ", " << _pdu_sender->getArrivalTime() << std::endl;
+  if (this->_will_be_expired || (is_sdu_empty && _sdu_tx_ptr->is_empty(simTime().dbl()) == false && is_reservable_time)) {
     pdu_info = _sdu_tx_ptr->get_duration_size_rri(
       simTime().dbl(),
       _sdu_tx_ptr->maximum_duration(simTime().dbl())

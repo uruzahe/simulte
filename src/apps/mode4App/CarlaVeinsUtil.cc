@@ -235,7 +235,7 @@ VirtualTxSduQueue::VirtualTxSduQueue()
   _max_ch =   cbr2seize_ch_rri[cbrs.back()]["ch"].get<int>();
   _max_rri =  cbr2seize_ch_rri[cbrs.back()]["rri"].get<double>();
 
-  _min_rri = cbr2seize_ch_rri[cbrs.front()]["rri"].get<double>();
+  _min_rri = *std::min_element(possible_rris.begin(), possible_rris.end());
 }
 
 
@@ -563,21 +563,22 @@ json VirtualTxSduQueue::get_duration_size_rri(double current_time, double maximu
   result["rri"] =  cbr2seize_ch_rri[cbrs.back()]["rri"].get<double>();
 
   for (auto ltr = cbrs.begin(); ltr != cbrs.end(); ltr++) {
+    // std::cout << __func__ << ", -----" << std::endl;
     rri =  cbr2seize_ch_rri[(*ltr)]["rri"].get<double>();
     size = cbr2seize_ch_rri[(*ltr)]["size"].get<int>();
 
     for (duration = maximum_duration; 0 < duration; duration -= rri) {
 
-      be_found = false;
+      be_found = true;
       total_byte = 0;
 
       if (_fragment != NULL) {
         total_byte += _fragment["lefted_size"].get<double>();
-        // std::cout << __func__ << ", expired" << _fragment["expired_time"].get<double>() << ", current_time: " << current_time << ", duration: " << duration << std::endl;
+        // std::cout << __func__ << "seg , expired" << _fragment["expired_time"].get<double>() << ", current_time: " << current_time << ", duration: " << duration << std::endl;
         rri_count = (int) ((_fragment["expired_time"].get<double>() - current_time - duration) / rri) + 1;
 
         // std::cout << __func__ << ", total_byte" << total_byte << ", rri_count: " << rri_count << ", size" << size << ", rri" << rri << std::endl;
-        be_found = (total_byte <= rri_count * size);
+        be_found = be_found && (total_byte <= rri_count * size);
 
 
         if (be_found == false) { continue; }
@@ -585,13 +586,14 @@ json VirtualTxSduQueue::get_duration_size_rri(double current_time, double maximu
 
 
       for (auto ptr = _priority2packets.begin(); ptr != _priority2packets.end(); ptr++) {
+        // std::cout << __func__ << ", " << (ptr->first) << std::endl;
         for (auto itr = ptr->second.begin(); itr != ptr->second.end(); itr++) {
           total_byte += (*itr)["size"].get<double>();
           // std::cout << __func__ << ", expired" << (*itr)["expired_time"].get<double>() << ", current_time: " << current_time << ", duration: " << duration << std::endl;
           rri_count = (int) (((*itr)["expired_time"].get<double>() - current_time - duration) / rri) + 1;
 
           // std::cout << __func__ << ", total_byte" << total_byte << ", rri_count: " << rri_count << ", size" << size << ", rri" << rri << std::endl;
-          be_found = (total_byte < rri_count * size);
+          be_found = be_found && (total_byte < rri_count * size);
 
 
           if (be_found == false) { break; }

@@ -130,6 +130,7 @@ protected:
    bool is_dynamic_simulation;
    bool sendCPM;
    bool sendBeacons;
+   bool _will_be_expired = false;
    cMessage* sendCPMEvt;
    double carlaTimeStep;
    std::string sumo_id;
