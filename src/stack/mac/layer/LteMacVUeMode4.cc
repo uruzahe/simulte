@@ -646,6 +646,14 @@ void LteMacVUeMode4::handleMessage(cMessage *msg)
         if (strcmp(pkt->getName(), "newDataPkt")== 0)
         {
             FlowControlInfoNonIp* lteInfo = check_and_cast<FlowControlInfoNonIp*>(pkt->removeControlInfo());
+
+            // ----- if type is "selection", remove sdu -----
+            if (lteInfo->getRemoveDataFromQueue()) {
+              PduMakeInfo* pdu_make_info_pkt = new PduMakeInfo("PduMakeInfo");
+              pdu_make_info_pkt->setType("removeDataFromQueue");
+              sendUpperPackets(pdu_make_info_pkt);
+            }
+
             receivedTime_ = NOW;
             simtime_t elapsedTime = receivedTime_ - lteInfo->getCreationTime();
             // ----- Begin Modification -----
@@ -665,6 +673,7 @@ void LteMacVUeMode4::handleMessage(cMessage *msg)
 
             // ----- Begin My Code -----
             bool is_required_more_cr = false;
+            bool is_first_trans = false;
             // ----- remove old cr -----
             // std::cout << "----- remove old cr -----" << std::endl;
             auto itr = _time2ch_rri.begin();
@@ -691,6 +700,8 @@ void LteMacVUeMode4::handleMessage(cMessage *msg)
               LteMode4SchedulingGrant* m4G = check_and_cast<LteMode4SchedulingGrant*>(schedulingGrant_);
               max_ch = m4G->getNumSubchannels();
               max_rri = (m4G->getPeriod() * SLOT_2_MS / 100.0);
+
+              is_first_trans = m4G->getFirstTransmission();
             }
 
             int required_res = lteInfo->getMyChannelNum() / lteInfo->getMyRri();
@@ -723,11 +734,11 @@ void LteMacVUeMode4::handleMessage(cMessage *msg)
             // ----- End My Code -----
 
             std::cout << __func__ << ", " << simTime() << ", schedulingGrant_: " << schedulingGrant_ << ", is_required_more_cr: " << is_required_more_cr << ", periodCounter_ * SLOT_2_MS: " << periodCounter_ * SLOT_2_MS << ", remainingTime_: " << remainingTime_ << std::endl;
-            if (schedulingGrant_ == NULL || is_required_more_cr)
+            if (schedulingGrant_ == NULL || is_required_more_cr || lteInfo->getForceSelection())
             {
                 macGenerateSchedulingGrant(remainingTime_, lteInfo->getPriority());
             }
-            else if ((schedulingGrant_ != NULL && periodCounter_ * SLOT_2_MS > remainingTime_))
+            else if ((schedulingGrant_ != NULL && periodCounter_ * SLOT_2_MS > remainingTime_ && !is_first_trans))
             {
               // throw cRuntimeError("aaa");
                 emit(grantBreakTiming, 1);
@@ -1154,8 +1165,8 @@ void LteMacVUeMode4::macHandleSps(cPacket* pkt)
     PduMakeInfo* pdu_make_info_pkt = new PduMakeInfo("PduMakeInfo");
     pdu_make_info_pkt->setType("selectted");
     pdu_make_info_pkt->setStartTime(selectedStartTime.dbl());
-    // pdu_make_info_pkt->setRri(mode4Grant->getPeriod() * SLOT_2_MS);
-    pdu_make_info_pkt->setRri(resourceReservationInterval_ * 100.0);
+    pdu_make_info_pkt->setRri(mode4Grant->getPeriod() * SLOT_2_MS);
+    // pdu_make_info_pkt->setRri(resourceReservationInterval_ * 100.0);
     pdu_make_info_pkt->setCh(mode4Grant->getNumSubchannels());
     // std::cout << __func__ << ", " << simTime() << ", mac rri: " << mode4Grant->getPeriod() * SLOT_2_MS << std::endl;
     sendUpperPackets(pdu_make_info_pkt);

@@ -106,7 +106,7 @@ protected:
 
    //-----  My Code, Begin -----
    bool isSduQueueEmpty();
-   void SendPacket(std::string payload, std::string type, int payload_byte_size, int duration, json pdu_info);
+   void SendPacket(std::string payload, std::string type, int payload_byte_size, int duration, json pdu_info, bool force_selection);
    void SdusHandler(std::vector<json> sdus, double send_time, double recv_time);
    json GeoNetworkHandler();
    void resource_selection();
