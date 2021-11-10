@@ -108,20 +108,24 @@ void Mode4App::initialize(int stage)
         // ----- Virtual Network Layer -----
         _network_ptr = new VirtualGeoNetwork;
         _cbf_resend = new cMessage("_cbf_resend");
+        // _cbf_resend->setSchedulingPriority(8);
 
         // ----- Virtual Access Layer Queue -----
         _sdu_tx_ptr = new VirtualTxSduQueue;
         _sdu_rx_ptr = new VirtualRxSduQueue;
         _pdu_sender = new cMessage("_pdu_sender");
+        _pdu_sender->setSchedulingPriority(10);
 
         _pdu_interval = 0.1;
 
-        _removeDataFromQueue = new cMessage("_removeDataFromQueue");
+        // _removeDataFromQueue = new cMessage("_removeDataFromQueue");
         // _removeDataFromQueue->setSchedulingPriority(10);
 
         _resource_selection = new cMessage("_resource_selection");
-        _resource_selection->setSchedulingPriority(10);
+        _resource_selection->setSchedulingPriority(9);
 
+        _f_resource_selection = new cMessage("_f_resource_selection");
+        _f_resource_selection->setSchedulingPriority(8);
 
         // ----- initialize -----
         if (!sendBeacons && !is_dynamic_simulation) {
@@ -145,7 +149,112 @@ void Mode4App::initialize(int stage)
         std::cout << __func__ << ", " << simTime() << ", delay: " << delay << std::endl;
         scheduleAt((simTime() + delay).trunc(SIMTIME_US), selfSender_);
         scheduleAt((simTime() + delay + period_ / 2.0).trunc(SIMTIME_US), _pdu_sender);
+        cancelEvent(_pdu_sender);
+
+        // scheduleHandler((simTime() + delay).trunc(SIMTIME_US), _pdu_sender);
     }
+}
+
+void Mode4App::scheduleHandler(simtime_t t, cMessage * msg) {
+  if (t < simTime()) {
+    return;
+
+    // std::cout << __func__ << ", t: " << t << " is smaller than simTime: " << simTime() << std::endl;
+    // throw cRuntimeError(0);
+  }
+
+  cancelEvent(msg);
+
+  if (!strcmp(msg->getName(), "selfSender")) {
+    std::vector<simtime_t> tmp;
+    tmp.push_back(_f_resource_selection->getArrivalTime());
+    tmp.push_back(_pdu_sender->getArrivalTime());
+    tmp.push_back(t);
+
+    simtime_t min_t = *std::min_element(tmp.begin(), tmp.end());
+
+    if (simTime() <= min_t) {
+      // -----
+    } else {
+      min_t = simTime();
+    }
+
+    if ((simtime_t) 0.095 <= _pdu_sender->getArrivalTime() - selfSender_->getArrivalTime()) {
+    // if ((simtime_t) _current_rri <= _pdu_sender->getArrivalTime() - selfSender_->getArrivalTime()) {
+      scheduleAt(min_t, msg);
+    }
+
+    // std::cout << __func__ << ", " << simTime() << ", sumo_id: " << sumo_id << ", arrive: " << _pdu_sender->getArrivalTime() << std::endl;
+    // if (t <= _pdu_sender->getArrivalTime()) {
+    //   scheduleAt(t, msg);
+    //
+    // } else {
+    //   scheduleAt((simTime() + _pdu_sender->getArrivalTime()) / 2.0, msg);
+    // }
+
+    // simtime_t begin_unselect_time = _pdu_sender->getArrivalTime() - _sdu_tx_ptr->_min_rri / 2.0;
+    //
+    // if (t <= begin_unselect_time || _pdu_sender->getArrivalTime() < t) {
+    //   scheduleAt(t, msg);
+    //
+    // } else {
+    //   if (simTime() <= begin_unselect_time ) {
+    //     scheduleAt(begin_unselect_time, msg);
+    //
+    //   } else if (begin_unselect_time < simTime() && simTime() <= _pdu_sender->getArrivalTime()) {
+    //     scheduleAt(_pdu_sender->getArrivalTime() + _pdu_interval / 2.0, msg);
+    //
+    //   } else {
+    //     std::cout << __func__ << ", No such time" << ", arrive time: " << _pdu_sender->getArrivalTime() << ", now: " << simTime() << ", t: " << t << std::endl;
+    //     throw cRuntimeError(0);
+    //
+    //   }
+    // }
+
+  } else if (!strcmp(msg->getName(), "_pdu_sender")) {
+    if (t - 2 * TTI <= simTime()) {
+      scheduleAt(simTime(), msg);
+    } else {
+      scheduleAt(t - 2 * TTI, msg);
+    }
+
+    // scheduleHandler(_pdu_sender->getArrivalTime(), _resource_selection);
+    scheduleHandler(_pdu_sender->getArrivalTime(), _f_resource_selection);
+    scheduleHandler(_pdu_sender->getArrivalTime(), selfSender_);
+
+    // scheduleHandler(selfSender_->getArrivalTime(), selfSender_);
+    // scheduleHandler(_resource_selection->getArrivalTime(), _resource_selection);
+
+  } else if (!strcmp(msg->getName(), "_cbf_resend")) {
+    scheduleAt(t, msg);
+
+  } else if (!strcmp(msg->getName(), "_resource_selection") || !strcmp(msg->getName(), "_f_resource_selection")) {
+    simtime_t begin_unselect_time = _pdu_sender->getArrivalTime() - _sdu_tx_ptr->_min_rri / 2.0;
+
+    if (t <= begin_unselect_time || _pdu_sender->getArrivalTime() < t) {
+      scheduleAt(t, msg);
+
+    } else {
+      if (simTime() <= begin_unselect_time ) {
+        scheduleAt(begin_unselect_time, msg);
+
+      } else if (begin_unselect_time < simTime() && simTime() <= _pdu_sender->getArrivalTime()) {
+        scheduleAt(_pdu_sender->getArrivalTime() + 2 * TTI, msg);
+
+      } else {
+        std::cout << __func__ << ", No such time" << ", arrive time: " << _pdu_sender->getArrivalTime() << ", now: " << simTime() << ", t: " << t << std::endl;
+        throw cRuntimeError(0);
+
+      }
+    }
+
+    if (_resource_selection->getArrivalTime() == _f_resource_selection->getArrivalTime()) {
+      cancelEvent(_resource_selection);
+    }
+
+  } else {
+    throw cRuntimeError("Mode4App::handleMessage - Unrecognized self message");
+  }
 }
 
 void Mode4App::StachSendPDU() {
@@ -172,7 +281,7 @@ void Mode4App::StachSendPDU() {
       {"is_empty", _sdu_tx_ptr->is_empty(simTime().dbl())}
     };
     this->_grant_rec_logs.push_back(log.dump());
-    throw cRuntimeError(0);
+    // throw cRuntimeError(0);
   }
 }
 
@@ -276,16 +385,17 @@ json Mode4App::RlcHandler (std::string cmd, json packet={}) {
   if (cmd == "FromGeocast") {
     std::cout << __func__ << ", " << simTime() << ", sumo_id: " << sumo_id << ", arrive time" << _pdu_sender->getArrivalTime() << std::endl;
     if (_sdu_tx_ptr->enque(_sdu_tx_ptr->update_header(packet, this->sumo_id), simTime().dbl())) {
-      if (simTime() <= _pdu_sender->getArrivalTime() && _pdu_sender->getArrivalTime() <= simTime() + 2 * TTI) {
-        // std::cout << "aaa" << std::endl;
-        cancelEvent(_resource_selection);
-        scheduleAt(_pdu_sender->getArrivalTime() + 2 * TTI, _resource_selection);
-        // ----- do nothing -----
-      } else {
-        // std::cout << "bbb" << std::endl;
-        cancelEvent(_resource_selection);
-        scheduleAt(simTime(), _resource_selection);
-      }
+      // if (simTime() <= _pdu_sender->getArrivalTime() && _pdu_sender->getArrivalTime() <= simTime() + 2 * TTI) {
+      //   // std::cout << "aaa" << std::endl;
+      //   cancelEvent(_resource_selection);
+      //   scheduleAt(_pdu_sender->getArrivalTime() + 2 * TTI, _resource_selection);
+      //   // ----- do nothing -----
+      // } else {
+      //   // std::cout << "bbb" << std::endl;
+      //   cancelEvent(_resource_selection);
+      //   scheduleAt(simTime(), _resource_selection);
+
+        scheduleHandler(simTime(), _resource_selection);
     }
 
   } else if (cmd == "ToGeocast") {
@@ -376,6 +486,8 @@ void Mode4App::handleLowerMessage(cMessage* msg)
       PduMakeInfo* pdu_make_info_pkt = check_and_cast<PduMakeInfo*>(msg);
 
       if (pdu_make_info_pkt->getType() == (std::string)"selectted") {
+        // UmTxEntityPtr = veins::FindModule<UmTxEntity*>::findSubModule(getParentModule());
+
         this->_will_be_expired = false;
 
         double start_time = pdu_make_info_pkt->getStartTime();
@@ -399,11 +511,12 @@ void Mode4App::handleLowerMessage(cMessage* msg)
 
         std::cout << __func__ << ", start_time: " << start_time << ", rri: " << _current_rri << ", ch: " << _current_ch << std::endl;
         // _pdu_sender->setSchedulingPriority(0);
-        if (start_time - 2 * TTI <= simTime().dbl()) {
-          scheduleAt(simTime(), _pdu_sender);
-        } else {
-          scheduleAt(start_time - 2 * TTI, _pdu_sender);
-        }
+        scheduleHandler(start_time, _pdu_sender);
+        // if (start_time - 2 * TTI <= simTime().dbl()) {
+        //   scheduleAt(simTime(), _pdu_sender);
+        // } else {
+        //   scheduleAt(start_time - 2 * TTI, _pdu_sender);
+        // }
 
       } else if (pdu_make_info_pkt->getType() == (std::string) "expired") {
         this->_will_be_expired = true;
@@ -478,13 +591,20 @@ void Mode4App::handleSelfMessage(cMessage* msg)
         }
 
         emit(sentMsg_, (long)1);
-        scheduleAt(simTime() + period_, selfSender_);
+        // scheduleAt(simTime() + period_, selfSender_);
+        json log = {
+          {"time", simTime().dbl()},
+          {"type", "selfSender"}
+        };
+        this->_grant_rec_logs.push_back(log.dump());
+        // scheduleHandler(simTime() + period_, selfSender_);
 
     } else if (!strcmp(msg->getName(), "_pdu_sender")) {
       // std::cout << __func__ << simTime() << "_pdu_sender" << std::endl;
       this->RlcHandler("ToPhy");
       // _pdu_sender->setSchedulingPriority(0);
-      scheduleAt(simTime() + _pdu_interval, _pdu_sender);
+      // scheduleAt(simTime() + _pdu_interval, _pdu_sender);
+      scheduleHandler(simTime() + _pdu_interval, _pdu_sender);
 
     }
     else if (!strcmp(msg->getName(), "_removeDataFromQueue")) {
@@ -494,6 +614,9 @@ void Mode4App::handleSelfMessage(cMessage* msg)
       this->GeoNetworkHandler("ReSend", {});
 
     } else if (!strcmp(msg->getName(), "_resource_selection")) {
+      resource_selection();
+
+    } else if (!strcmp(msg->getName(), "_f_resource_selection")) {
       resource_selection();
 
     } else {
@@ -682,19 +805,18 @@ void Mode4App::syncCarlaVeinsData(cMessage* msg)
 
 }
 
-
 void Mode4App::resource_selection() {
   // std::cout << __func__ << ", " << simTime() << ", Begin." << std::endl;
 
   json pdu_info = {};
   bool is_required_more_cr = false;
   bool is_short_duration = false;
-  bool is_reservable_time = simTime() + _sdu_tx_ptr->_min_rri / 2.0 < _pdu_sender->getArrivalTime();
+  bool is_reservable_time = simTime() + _sdu_tx_ptr->_min_rri / 2.0 <= _pdu_sender->getArrivalTime();
   bool is_sdu_empty = isSduQueueEmpty();
 
   std::cout << __func__ << ", " << simTime() << ", sumo_id: " << sumo_id << is_sdu_empty << _sdu_tx_ptr->is_empty(simTime().dbl())  << is_reservable_time << std::endl;
   std::cout << _sdu_tx_ptr->_min_rri << ", " << _pdu_sender->getArrivalTime() << std::endl;
-  if (this->_will_be_expired || (is_sdu_empty && _sdu_tx_ptr->is_empty(simTime().dbl()) == false && is_reservable_time)) {
+  if ((is_sdu_empty && _sdu_tx_ptr->is_empty(simTime().dbl()) == false) && (this->_will_be_expired || is_reservable_time)) {
     pdu_info = _sdu_tx_ptr->get_duration_size_rri(
       simTime().dbl(),
       _sdu_tx_ptr->maximum_duration(simTime().dbl())
@@ -702,23 +824,34 @@ void Mode4App::resource_selection() {
 
     std::cout << __func__ << ", " << simTime() << ", sumo_id: " << sumo_id << ", pdu_info: " << pdu_info <<  ", res time: " << _pdu_sender->getArrivalTime() << std::endl;
     is_required_more_cr = (_current_ch / _current_rri < pdu_info["ch"].get<int>() / pdu_info["rri"].get<double>());
-    is_short_duration = pdu_info["duration"].get<double>() < _pdu_sender->getArrivalTime().dbl() - simTime().dbl();
+    is_short_duration = (simtime_t) pdu_info["duration"].get<double>() < _pdu_sender->getArrivalTime() - simTime();
 
     pdu_info["type"] = "resource_selection";
     pdu_info["time"] = simTime().dbl();
     pdu_info["_current_duration"] = _pdu_sender->getArrivalTime().dbl() - simTime().dbl();
     this->_grant_rec_logs.push_back(pdu_info.dump());
-  }
-
-  if (!(is_sdu_empty && is_reservable_time)) {
-    cancelEvent(_resource_selection);
-    scheduleAt(_pdu_sender->getArrivalTime() + 2 * TTI, _resource_selection);
-  }
 
 
-  if (is_required_more_cr || is_short_duration || this->_will_be_expired) {
-    SendPacket("", "reselection", 0, pdu_info["duration"].get<double>() * 1000, pdu_info, this->_will_be_expired);
+    if (is_required_more_cr || is_short_duration || this->_will_be_expired) {
+      SendPacket("", "reselection", 0, pdu_info["duration"].get<double>() * 1000, pdu_info, this->_will_be_expired);
+    }
+  } else {
+    json log = {
+      {"type", "resource_selection_not"},
+      {"time", simTime().dbl()},
+      {"is_sdu_empty", is_sdu_empty},
+      {"is_empty", _sdu_tx_ptr->is_empty(simTime().dbl())},
+      {"will_be_expired", this->_will_be_expired},
+      {"is_reservable_time", is_reservable_time}
+    };
+    this->_grant_rec_logs.push_back(log.dump());
   }
+
+  // if (!(is_sdu_empty && is_reservable_time)) {
+  //   cancelEvent(_resource_selection);
+  //   scheduleAt(_pdu_sender->getArrivalTime() + 2 * TTI, _resource_selection);
+  // }
+
 }
 
 // ----- End My Code -----

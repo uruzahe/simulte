@@ -647,13 +647,6 @@ void LteMacVUeMode4::handleMessage(cMessage *msg)
         {
             FlowControlInfoNonIp* lteInfo = check_and_cast<FlowControlInfoNonIp*>(pkt->removeControlInfo());
 
-            // ----- if type is "selection", remove sdu -----
-            if (lteInfo->getRemoveDataFromQueue()) {
-              PduMakeInfo* pdu_make_info_pkt = new PduMakeInfo("PduMakeInfo");
-              pdu_make_info_pkt->setType("removeDataFromQueue");
-              sendUpperPackets(pdu_make_info_pkt);
-            }
-
             receivedTime_ = NOW;
             simtime_t elapsedTime = receivedTime_ - lteInfo->getCreationTime();
             // ----- Begin Modification -----
@@ -740,7 +733,6 @@ void LteMacVUeMode4::handleMessage(cMessage *msg)
             }
             else if ((schedulingGrant_ != NULL && periodCounter_ * SLOT_2_MS > remainingTime_ && !is_first_trans))
             {
-              // throw cRuntimeError("aaa");
                 emit(grantBreakTiming, 1);
                 delete schedulingGrant_;
                 schedulingGrant_ = NULL;
@@ -753,8 +745,19 @@ void LteMacVUeMode4::handleMessage(cMessage *msg)
                 // Need to get the creation time for this
                 mode4Grant->setMaximumLatency(remainingTime_);
             }
+            // ----- Modify Code -----
+            // ----- Original Code -----
             // Need to set the size of our grant to the correct size we need to ask rlc for, i.e. for the sdu size.
-            schedulingGrant_->setGrantedCwBytes((MAX_CODEWORDS - currentCw_), pkt->getBitLength());
+            // schedulingGrant_->setGrantedCwBytes((MAX_CODEWORDS - currentCw_), pkt->getBitLength());
+            // ----- My Code -----
+            schedulingGrant_->setGrantedCwBytes((MAX_CODEWORDS - currentCw_), _my_channel_num * 150 * 8);
+            // ----- if type is "selection", remove sdu -----
+            if (lteInfo->getRemoveDataFromQueue()) {
+              PduMakeInfo* pdu_make_info_pkt = new PduMakeInfo("PduMakeInfo");
+              pdu_make_info_pkt->setType("removeDataFromQueue");
+              sendUpperPackets(pdu_make_info_pkt);
+            }
+            // ----- End Modify Code -----
 
             pkt->setControlInfo(lteInfo);
         }

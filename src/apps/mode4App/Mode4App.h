@@ -112,6 +112,7 @@ protected:
    void resource_selection();
    void removeDataFromQueue();
    void StachSendPDU();
+   void scheduleHandler(simtime_t t, cMessage * msg);
 
    json attach_headers(json packet, json geocast_header, json rlc_header);
    json FacilityHandler (std::string cmd, json packet);
@@ -172,6 +173,7 @@ protected:
 
    cMessage*  _removeDataFromQueue;
    cMessage* _resource_selection;
+   cMessage* _f_resource_selection;
 
    int _max_hop;
 

@@ -17,7 +17,7 @@ Define_Module(UmTxEntity);
 // ----- Begin My Code -----
 bool UmTxEntity::isSduQueueEmpty()
 {
-  return sduQueue_.empty();
+  return sduQueue_.isEmpty();
 }
 // ----- End My Code -----
 
