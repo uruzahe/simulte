@@ -107,6 +107,7 @@ class FlowControlInfoNonIp extends LteControlInfo {
     double myRri = 1.0;
     bool forceSelection = false;
     bool removeDataFromQueue = false;
+    bool grantBreak = false;
     // ----- End My Code -----
 }
 //

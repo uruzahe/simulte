@@ -102,7 +102,7 @@ std::vector<json> CAMHandler::filter_cams_by_etsi(std::vector<json> cams)
   double dy = target_cam["HF_Container"]["yaw"].get<double>() - latest_cam["HF_Container"]["yaw"].get<double>();
 
   // ----- ETSI standards -----
-  return {target_cam};
+  // return {target_cam};
 
   if (0.1 <= dT && (1 <= dT || 4 <= dl || 0.5 <= ds || 4 <= dy)) {
     return {target_cam};

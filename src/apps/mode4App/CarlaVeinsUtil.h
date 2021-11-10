@@ -174,12 +174,12 @@ public:
   double _last_resend_time = 0;
 
   double _TO_CBF_MIN = 0.001;
-  double _TO_CBF_MAX = 0.1;
-  // double _TO_CBF_MAX = 0.010;
+  // double _TO_CBF_MAX = 0.1;
+  double _TO_CBF_MAX = 0.010;
 
-  // double _DIST_MAX = 1000;
+  double _DIST_MAX = 1000;
   // double _DIST_MAX = 400;
-  double _DIST_MAX = 0;
+  // double _DIST_MAX = 0;
   double _itsGnBroadcastCBFDefSectorAngle = 30;
   double _itsGnMinPacketRepetitionInterval = 0.1;
   int _itsGnLocationServiceMaxRetrans = 2;

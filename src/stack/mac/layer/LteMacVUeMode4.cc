@@ -423,6 +423,10 @@ void LteMacVUeMode4::macPduMake()
                 throw cRuntimeError("Unable to find mac buffer for cid %d", destCid);
 
             if (mbuf_[destCid]->empty())
+                // ----- Begin My Code -----
+                // return;
+                // ----- End My Code -----
+
                 throw cRuntimeError("Empty buffer for cid %d, while expected SDUs were %d", destCid, sduPerCid);
 
             pkt = mbuf_[destCid]->popFront();
@@ -647,6 +651,27 @@ void LteMacVUeMode4::handleMessage(cMessage *msg)
         {
             FlowControlInfoNonIp* lteInfo = check_and_cast<FlowControlInfoNonIp*>(pkt->removeControlInfo());
 
+            // ----- Begin My Code -----
+            // ----- if type is "selection", remove sdu -----
+            if (lteInfo->getRemoveDataFromQueue()) {
+              PduMakeInfo* pdu_make_info_pkt = new PduMakeInfo("PduMakeInfo");
+              pdu_make_info_pkt->setType("removeDataFromQueue");
+              sendUpperPackets(pdu_make_info_pkt);
+            }
+            
+            if (lteInfo->getGrantBreak()) {
+              PduMakeInfo* pdu_make_info_pkt = new PduMakeInfo("PduMakeInfo");
+              pdu_make_info_pkt->setType("expired");
+              sendUpperPackets(pdu_make_info_pkt);
+
+              emit(grantBreakTiming, 1);
+              delete schedulingGrant_;
+              schedulingGrant_ = NULL;
+
+              return;
+            }
+            // ----- End My Code -----
+
             receivedTime_ = NOW;
             simtime_t elapsedTime = receivedTime_ - lteInfo->getCreationTime();
             // ----- Begin Modification -----
@@ -733,6 +758,12 @@ void LteMacVUeMode4::handleMessage(cMessage *msg)
             }
             else if ((schedulingGrant_ != NULL && periodCounter_ * SLOT_2_MS > remainingTime_ && !is_first_trans))
             {
+                // ----- Begin My Code -----
+                PduMakeInfo* pdu_make_info_pkt = new PduMakeInfo("PduMakeInfo");
+                pdu_make_info_pkt->setType("expired");
+                sendUpperPackets(pdu_make_info_pkt);
+                // ----- End My Code -----
+
                 emit(grantBreakTiming, 1);
                 delete schedulingGrant_;
                 schedulingGrant_ = NULL;
@@ -751,12 +782,6 @@ void LteMacVUeMode4::handleMessage(cMessage *msg)
             // schedulingGrant_->setGrantedCwBytes((MAX_CODEWORDS - currentCw_), pkt->getBitLength());
             // ----- My Code -----
             schedulingGrant_->setGrantedCwBytes((MAX_CODEWORDS - currentCw_), _my_channel_num * 150 * 8);
-            // ----- if type is "selection", remove sdu -----
-            if (lteInfo->getRemoveDataFromQueue()) {
-              PduMakeInfo* pdu_make_info_pkt = new PduMakeInfo("PduMakeInfo");
-              pdu_make_info_pkt->setType("removeDataFromQueue");
-              sendUpperPackets(pdu_make_info_pkt);
-            }
             // ----- End Modify Code -----
 
             pkt->setControlInfo(lteInfo);
@@ -830,9 +855,9 @@ void LteMacVUeMode4::handleSelfMessage()
             }
             // ----- Begin My Code -----
             else {
-              PduMakeInfo* pdu_make_info_pkt = new PduMakeInfo("PduMakeInfo");
-              pdu_make_info_pkt->setType("will_be_expired");
-              sendUpperPackets(pdu_make_info_pkt);
+              // PduMakeInfo* pdu_make_info_pkt = new PduMakeInfo("PduMakeInfo");
+              // pdu_make_info_pkt->setType("will_be_expired");
+              // sendUpperPackets(pdu_make_info_pkt);
             }
             // ----- End My Code -----
         }
@@ -853,9 +878,9 @@ void LteMacVUeMode4::handleSelfMessage()
             expiredGrant_ = true;
 
             // ----- Begin My Code -----
-            PduMakeInfo* pdu_make_info_pkt = new PduMakeInfo("PduMakeInfo");
-            pdu_make_info_pkt->setType("expired");
-            sendUpperPackets(pdu_make_info_pkt);
+            // PduMakeInfo* pdu_make_info_pkt = new PduMakeInfo("PduMakeInfo");
+            // pdu_make_info_pkt->setType("expired");
+            // sendUpperPackets(pdu_make_info_pkt);
             // ----- End My Code -----
         }
     }
@@ -1421,6 +1446,12 @@ void LteMacVUeMode4::flushHarqBuffers()
 
                         if (remainingTime_ <= 0)
                         {
+                            // ----- Begin My Code -----
+                            PduMakeInfo* pdu_make_info_pkt = new PduMakeInfo("PduMakeInfo");
+                            pdu_make_info_pkt->setType("expired");
+                            sendUpperPackets(pdu_make_info_pkt);
+                            // ----- End My Code -----
+
                             //emit(droppedTimeout, 1);
                             selectedProcess->forceDropProcess();
                             delete schedulingGrant_;
@@ -1428,6 +1459,13 @@ void LteMacVUeMode4::flushHarqBuffers()
                         }
                         else
                         {
+
+                            // ----- Begin My Code -----
+                            PduMakeInfo* pdu_make_info_pkt = new PduMakeInfo("PduMakeInfo");
+                            pdu_make_info_pkt->setType("expired");
+                            sendUpperPackets(pdu_make_info_pkt);
+                            // ----- End My Code -----
+
                             delete schedulingGrant_;
                             schedulingGrant_ = NULL;
                             macGenerateSchedulingGrant(remainingTime_, priority);
@@ -1460,6 +1498,12 @@ void LteMacVUeMode4::flushHarqBuffers()
                 phyGrant->setPeriod(0);
                 phyGrant->setExpiration(0);
 
+                // ----- Begin My Code -----
+                PduMakeInfo* pdu_make_info_pkt = new PduMakeInfo("PduMakeInfo");
+                pdu_make_info_pkt->setType("expired");
+                sendUpperPackets(pdu_make_info_pkt);
+                // ----- End My Code -----
+
                 delete schedulingGrant_;
                 schedulingGrant_ = NULL;
                 missedTransmissions_ = 0;
@@ -1472,6 +1516,12 @@ void LteMacVUeMode4::flushHarqBuffers()
         }
     }
     if (expiredGrant_) {
+        // ----- Begin My Code -----
+        PduMakeInfo* pdu_make_info_pkt = new PduMakeInfo("PduMakeInfo");
+        pdu_make_info_pkt->setType("expired");
+        sendUpperPackets(pdu_make_info_pkt);
+        // ----- End My Code -----
+
         // Grant has expired, only generate new grant on receiving next message to be sent.
         delete schedulingGrant_;
         schedulingGrant_ = NULL;

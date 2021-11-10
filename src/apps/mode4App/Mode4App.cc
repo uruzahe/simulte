@@ -114,7 +114,7 @@ void Mode4App::initialize(int stage)
         _sdu_tx_ptr = new VirtualTxSduQueue;
         _sdu_rx_ptr = new VirtualRxSduQueue;
         _pdu_sender = new cMessage("_pdu_sender");
-        _pdu_sender->setSchedulingPriority(10);
+        // _pdu_sender->setSchedulingPriority(10);
 
         _pdu_interval = 0.1;
 
@@ -173,16 +173,17 @@ void Mode4App::scheduleHandler(simtime_t t, cMessage * msg) {
 
     simtime_t min_t = *std::min_element(tmp.begin(), tmp.end());
 
-    if (simTime() <= min_t) {
+    if (simTime() < min_t) {
+      scheduleAt(min_t, msg);
       // -----
     } else {
       min_t = simTime();
     }
 
-    if ((simtime_t) 0.095 <= _pdu_sender->getArrivalTime() - selfSender_->getArrivalTime()) {
-    // if ((simtime_t) _current_rri <= _pdu_sender->getArrivalTime() - selfSender_->getArrivalTime()) {
-      scheduleAt(min_t, msg);
-    }
+    // if ((simtime_t) 0.095 <= _pdu_sender->getArrivalTime() - selfSender_->getArrivalTime()) {
+    // // if ((simtime_t) _current_rri <= _pdu_sender->getArrivalTime() - selfSender_->getArrivalTime()) {
+    //   scheduleAt(min_t, msg);
+    // }
 
     // std::cout << __func__ << ", " << simTime() << ", sumo_id: " << sumo_id << ", arrive: " << _pdu_sender->getArrivalTime() << std::endl;
     // if (t <= _pdu_sender->getArrivalTime()) {
@@ -218,12 +219,20 @@ void Mode4App::scheduleHandler(simtime_t t, cMessage * msg) {
       scheduleAt(t - 2 * TTI, msg);
     }
 
-    // scheduleHandler(_pdu_sender->getArrivalTime(), _resource_selection);
+    scheduleHandler(_resource_selection->getArrivalTime(), _resource_selection);
     scheduleHandler(_pdu_sender->getArrivalTime(), _f_resource_selection);
     scheduleHandler(_pdu_sender->getArrivalTime(), selfSender_);
 
-    // scheduleHandler(selfSender_->getArrivalTime(), selfSender_);
-    // scheduleHandler(_resource_selection->getArrivalTime(), _resource_selection);
+    // if (this->_will_be_expired == true) {
+    //   this->_will_be_expired = false;
+    // } else {
+    //   // scheduleHandler(_pdu_sender->getArrivalTime(), _resource_selection);
+    //   scheduleHandler(_pdu_sender->getArrivalTime(), _f_resource_selection);
+    //   scheduleHandler(_pdu_sender->getArrivalTime(), selfSender_);
+    //
+    //   // scheduleHandler(selfSender_->getArrivalTime(), selfSender_);
+    //   // scheduleHandler(_resource_selection->getArrivalTime(), _resource_selection);
+    // }
 
   } else if (!strcmp(msg->getName(), "_cbf_resend")) {
     scheduleAt(t, msg);
@@ -260,10 +269,11 @@ void Mode4App::scheduleHandler(simtime_t t, cMessage * msg) {
 void Mode4App::StachSendPDU() {
   std::cout << __func__ << ", " << simTime() << ", sumo_id: " << sumo_id << ", isSduQueueEmpty: " << isSduQueueEmpty() << ", is_empty: " << _sdu_tx_ptr->is_empty(simTime().dbl()) << std::endl;
 
+  json pdu_info = {{"ch", _current_ch}, {"rri", _current_rri}};
+
   if (isSduQueueEmpty() && _sdu_tx_ptr->is_empty(simTime().dbl()) == false) {
     int pdu_size = _sdu_tx_ptr->_ch2size[_current_ch];
     json pdu = _sdu_tx_ptr->generate_PDU(pdu_size, simTime().dbl());
-    json pdu_info = {{"ch", _current_ch}, {"rri", _current_rri}};
 
     // std::cout << __func__ << ", pdu: " << pdu << ", pdu_info: " << pdu_info << std::endl;
     // std::cout << __func__ << ", now: " << simTime() << ", pdu_time: " << _pdu_sender->getArrivalTime() << std::endl;
@@ -273,7 +283,12 @@ void Mode4App::StachSendPDU() {
     pdu_info["_current_duration"] = _pdu_sender->getArrivalTime().dbl() - simTime().dbl();
     this->_grant_rec_logs.push_back(pdu_info.dump());
     SendPacket(pdu.dump(), "pdu", pdu["size"].get<int>(), pdu["duration"].get<double>(), pdu_info, false);
+
   } else {
+    if (isSduQueueEmpty() == true && _sdu_tx_ptr->is_empty(simTime().dbl())) {
+      SendPacket("", "resource_expire", 1, 1000, pdu_info, false);
+    }
+
     json log = {
       {"type", "StachSendPDU_Not"},
       {"time", simTime().dbl()},
@@ -488,7 +503,6 @@ void Mode4App::handleLowerMessage(cMessage* msg)
       if (pdu_make_info_pkt->getType() == (std::string)"selectted") {
         // UmTxEntityPtr = veins::FindModule<UmTxEntity*>::findSubModule(getParentModule());
 
-        this->_will_be_expired = false;
 
         double start_time = pdu_make_info_pkt->getStartTime();
         double rri = pdu_make_info_pkt->getRri();
@@ -511,7 +525,11 @@ void Mode4App::handleLowerMessage(cMessage* msg)
 
         std::cout << __func__ << ", start_time: " << start_time << ", rri: " << _current_rri << ", ch: " << _current_ch << std::endl;
         // _pdu_sender->setSchedulingPriority(0);
+        this->_will_be_expired = false;
         scheduleHandler(start_time, _pdu_sender);
+        cancelEvent(selfSender_);
+        cancelEvent(_f_resource_selection);
+
         // if (start_time - 2 * TTI <= simTime().dbl()) {
         //   scheduleAt(simTime(), _pdu_sender);
         // } else {
@@ -520,6 +538,9 @@ void Mode4App::handleLowerMessage(cMessage* msg)
 
       } else if (pdu_make_info_pkt->getType() == (std::string) "expired") {
         this->_will_be_expired = true;
+
+        // cancelEvent(_pdu_sender);
+        // scheduleHandler(_pdu_sender->getArrivalTime(), _pdu_sender);
 
         // cancelEvent(_resource_selection);
         // scheduleAt(simTime(), _resource_selection);
@@ -601,9 +622,11 @@ void Mode4App::handleSelfMessage(cMessage* msg)
 
     } else if (!strcmp(msg->getName(), "_pdu_sender")) {
       // std::cout << __func__ << simTime() << "_pdu_sender" << std::endl;
-      this->RlcHandler("ToPhy");
-      // _pdu_sender->setSchedulingPriority(0);
-      // scheduleAt(simTime() + _pdu_interval, _pdu_sender);
+
+      if (this->_will_be_expired == false) {
+        this->RlcHandler("ToPhy");
+      }
+
       scheduleHandler(simTime() + _pdu_interval, _pdu_sender);
 
     }
@@ -677,7 +700,7 @@ void Mode4App::removeDataFromQueue()
 void Mode4App::SendPacket(std::string payload, std::string type, int payload_byte_size, int duration_ms, json pdu_info={}, bool force_selection=false)
 {
   // std::cout << __func__ << ", " << simTime() << ", pdu_info: " << pdu_info << std::endl;
-  if (type == "pdu" || type == "reselection") {
+  if (type == "pdu" || type == "reselection" || type == "resource_expire") {
 
     try {
       // std::cout << "payload: " << payload << "\n, size: " << payload_byte_size << "\n, duration_ms: " << duration_ms << std::endl;
@@ -704,14 +727,16 @@ void Mode4App::SendPacket(std::string payload, std::string type, int payload_byt
       // lteControlInfo->setMyChannelNum(5);
       lteControlInfo->setMyRri(pdu_info["rri"].get<double>() * 10);
 
+      if (type == "reselection" || type == "resource_expire") {
+        lteControlInfo->setRemoveDataFromQueue(true);
+      }
+      if (type == "resource_expire") {
+        lteControlInfo->setGrantBreak(true);
+      }
+
       packet->setControlInfo(lteControlInfo);
 
       Mode4BaseApp::sendLowerPackets(packet);
-
-      if (type == "reselection") {
-        lteControlInfo->setRemoveDataFromQueue(true);
-      }
-
       // ----- End Population -----
     } catch (...) {
         // std::cout << "appQueue error: "<< payload.c_str() << "." << std::endl;
@@ -788,7 +813,7 @@ void Mode4App::syncCarlaVeinsData(cMessage* msg)
 
     SendPacket(packet["payload"].get<std::string>(), "cam", packet["size"].get<int>(), duration_, false);
 
-    return;
+    // return;
   }
 
   std::vector<json> target_pos = _pos_send_ptr->filter_pos_by_etsi(_pos_ptr->data_between_time(target_start_time, target_end_time));
@@ -800,7 +825,7 @@ void Mode4App::syncCarlaVeinsData(cMessage* msg)
       SendPacket(packet["payload"].get<std::string>(), "cpm", packet["size"].get<int>(), duration_, false);
     }
 
-    return;
+    // return;
   }
 
 }
