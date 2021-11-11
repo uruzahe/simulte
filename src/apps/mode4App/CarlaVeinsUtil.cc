@@ -212,10 +212,13 @@ VirtualTxSduQueue::VirtualTxSduQueue()
   // As the priority index is lower, more the priority becomes high.
   // The index 0 indicates the most important packet.
 
-  _priority2packets[0] = {};
-  _priority2packets[1] = {};
-  _priority2packets[2] = {};
-  _priority2packets[3] = {};
+  // ETSI has 4 priority in Access Layer [1] -----
+  // [1]: ETSI EN 302 663 V1.2.1. (2020). Intelligent Transport Systems (ITS); Access layer specification for in the 5 GHz frequency band. 1, 1–24.
+  _priority2packets[0] = {}; // High priority DENMs
+  _priority2packets[1] = {}; // Normal DENMs
+  _priority2packets[2] = {}; // CAMs
+  _priority2packets[3] = {}; // Forwarded DENMs and other low priority messages (etc. CPM)
+  _priority2packets[4] = {}; // multihop Forwarded message (in convenience)
 
 
   for (auto itr = bytes2channel_num_in_MCS7.begin(); itr != bytes2channel_num_in_MCS7.end(); itr++) {

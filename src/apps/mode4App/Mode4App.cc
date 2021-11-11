@@ -334,6 +334,8 @@ json Mode4App::GeoNetworkHandler (std::string cmd, json packet={}) {
   json result = {};
 
   if (cmd == "FromApp") {
+    packet["size"] = packet["size"].get<int>() + MY_GEONETWORK_HEADER;
+
     return this->RlcHandler("FromGeocast", _network_ptr->enque(packet, simTime().dbl()));
 
   } else if (cmd == "FromRlc") {
@@ -353,6 +355,7 @@ json Mode4App::GeoNetworkHandler (std::string cmd, json packet={}) {
       this->GeoNetworkHandler("ReSendSchedule", {});
     }
 
+    packet["size"] = packet["size"].get<int>() - MY_GEONETWORK_HEADER;
     return this->FacilityHandler("FromGeocast", packet);
 
   } else if (cmd == "ReSend") {
@@ -506,6 +509,7 @@ void Mode4App::handleLowerMessage(cMessage* msg)
 
         double start_time = pdu_make_info_pkt->getStartTime();
         double rri = pdu_make_info_pkt->getRri();
+        std::cout << __func__ << ", sumo_id: " << sumo_id << ", rri: " << rri << ", original rri: " << pdu_make_info_pkt->getRri() << std::endl;
         json log = {
           {"time", simTime().dbl()},
           {"_current_ch", _current_ch},
@@ -854,6 +858,11 @@ void Mode4App::resource_selection() {
     pdu_info["type"] = "resource_selection";
     pdu_info["time"] = simTime().dbl();
     pdu_info["_current_duration"] = _pdu_sender->getArrivalTime().dbl() - simTime().dbl();
+    pdu_info["is_sdu_empty"] = is_sdu_empty;
+    pdu_info["is_empty"] = _sdu_tx_ptr->is_empty(simTime().dbl());
+    pdu_info["will_be_expired"] = this->_will_be_expired;
+    pdu_info["is_reservable_time"] = is_reservable_time;
+    pdu_info["is_short_duration"] = is_short_duration;
     this->_grant_rec_logs.push_back(pdu_info.dump());
 
 
@@ -867,7 +876,8 @@ void Mode4App::resource_selection() {
       {"is_sdu_empty", is_sdu_empty},
       {"is_empty", _sdu_tx_ptr->is_empty(simTime().dbl())},
       {"will_be_expired", this->_will_be_expired},
-      {"is_reservable_time", is_reservable_time}
+      {"is_reservable_time", is_reservable_time},
+      {"is_short_duration", is_short_duration}
     };
     this->_grant_rec_logs.push_back(log.dump());
   }

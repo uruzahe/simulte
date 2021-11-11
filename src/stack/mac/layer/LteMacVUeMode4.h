@@ -122,6 +122,9 @@ protected:
    int _my_channel_num;
    double _my_rri;
    std::map<double, json> _time2ch_rri;
+
+   json past_max_rri_and_max_ch();
+   json formatted_resource(int ch, double rri);
    // ----- End My Code -----
 
 //   // Lte AMC module
