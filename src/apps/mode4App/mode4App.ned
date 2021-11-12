@@ -33,7 +33,7 @@ simple Mode4App like Mode4BaseApp
         string carlaVeinsDataDir = default("/vagrant/carla-veins-data/");
         bool is_dynamic_simulation = default(false);
         int sensor_num = default(1);
-        int max_cpm_size = default(264);
+        int max_cpm_size = default(240);
         int max_hop = default(1);
         // ----- End My Params -----
 

@@ -334,7 +334,7 @@ json Mode4App::GeoNetworkHandler (std::string cmd, json packet={}) {
   json result = {};
 
   if (cmd == "FromApp") {
-    packet["size"] = packet["size"].get<int>() + MY_GEONETWORK_HEADER;
+    packet["size"] = packet["size"].get<int>() + MY_GEONETWORK_HEADER + MY_PDCP_HEADER_BYTE + MY_SDAP_HEADER_BYTE;
 
     return this->RlcHandler("FromGeocast", _network_ptr->enque(packet, simTime().dbl()));
 
@@ -355,7 +355,7 @@ json Mode4App::GeoNetworkHandler (std::string cmd, json packet={}) {
       this->GeoNetworkHandler("ReSendSchedule", {});
     }
 
-    packet["size"] = packet["size"].get<int>() - MY_GEONETWORK_HEADER;
+    packet["size"] = packet["size"].get<int>() - MY_GEONETWORK_HEADER - MY_PDCP_HEADER_BYTE - MY_SDAP_HEADER_BYTE;
     return this->FacilityHandler("FromGeocast", packet);
 
   } else if (cmd == "ReSend") {

@@ -326,7 +326,7 @@ json VirtualTxSduQueue::formatted_pdu(int maximum_size, double current_time) {
   pdu["maximum_size"] = maximum_size;
   pdu["timestamp"] = current_time;
   pdu["duration"] = 100;
-  pdu["size"] = MY_MAC_HEADER_BYTE;
+  pdu["size"] = 0;
   pdu["type"] = "pdu";
   pdu["sdus"] = {};
 
@@ -355,7 +355,7 @@ bool VirtualTxSduQueue::enque(json packet, double current_time)
 json VirtualTxSduQueue::update_pdu_by_fragment(json pdu, double current_time) {
 
   // std::cout << __func__ << ", Begin." << std::endl;
-  int lefted_size = pdu["maximum_size"].get<int>() - pdu["size"].get<int>() - MY_RLC_UM_HEADER_BYTE - MY_PDCP_HEADER_BYTE;
+  int lefted_size = pdu["maximum_size"].get<int>() - pdu["size"].get<int>() - MY_RLC_UM_HEADER_BYTE - MY_MAC_HEADER_BYTE;
 
   if (_fragment != NULL && 0 < lefted_size) {
     if (_fragment["end_byte"].get<int>() - _fragment["start_byte"].get<int>() <= lefted_size) {
@@ -422,7 +422,7 @@ json VirtualTxSduQueue::add_fragment_into_pdu(json pdu, json send_fragment, doub
   sdus.push_back(send_fragment);
   pdu["sdus"] = sdus;
 
-  pdu["size"] = pdu["size"].get<int>() + MY_PDCP_HEADER_BYTE + MY_RLC_UM_HEADER_BYTE + send_fragment["lefted_size"].get<int>();
+  pdu["size"] = pdu["size"].get<int>() + MY_RLC_UM_HEADER_BYTE + MY_MAC_HEADER_BYTE + send_fragment["lefted_size"].get<int>();
 
   return pdu;
 }
