@@ -244,20 +244,22 @@ VirtualTxSduQueue::VirtualTxSduQueue()
 }
 
 
-json VirtualTxSduQueue::header(std::string sender_id, int priority, double expired_time) {
+json VirtualTxSduQueue::header(std::string sender_id, int priority, double expired_time, double resource_consider_time) {
   json header;
 
   header["rlc"] = {
     {"sender_id", sender_id},
     {"priority", priority},
     {"expired_time", expired_time},
+    {"resource_consider_time", min(resource_consider_time, expired_time)}
   };
 
   return header;
 }
 
-json VirtualTxSduQueue::update_header(json packet, std::string sender_id) {
+json VirtualTxSduQueue::update_header(json packet, std::string sender_id, double resource_consider_time) {
   packet["rlc"]["sender_id"] = sender_id;
+  packet["rlc"]["resource_consider_time"] = min(resource_consider_time, packet["rlc"]["expired_time"].get<double>());
 
   return packet;
 }
@@ -536,6 +538,18 @@ double VirtualTxSduQueue::maximum_duration(double current_time) {
   return result;
 }
 
+double VirtualTxSduQueue::resource_selection_time(double current_time)
+{
+  double result = current_time;
+
+  for (auto p4itr = _priority2packets[4].begin(); p4itr != _priority2packets[4].end(); p4itr++) {
+    if (result <= current_time || (*p4itr)["rlc"]["resource_consider_time"].get<double>() < result) {
+      result = (*p4itr)["rlc"]["resource_consider_time"].get<double>();
+    }
+  }
+
+  return result;
+}
 
 bool VirtualTxSduQueue::is_empty(double current_time) {
   this->delete_expired_fragments(current_time);
@@ -561,6 +575,15 @@ json VirtualTxSduQueue::get_duration_size_rri(double current_time, double maximu
 
   double rri_count = 0;
 
+  // ----- Begin Proposed Method -----
+  int RCT_index_in_p4 = 0;
+  for (auto p4itr = _priority2packets[4].begin(); p4itr != _priority2packets[4].end(); p4itr++) {
+    if ((*p4itr)["rlc"]["resource_consider_time"].get<double>() <= current_time) {
+      RCT_index_in_p4 = p4itr - _priority2packets[4].begin();
+    }
+  }
+  // ----- End Proposed Method -----
+
   json result;
   result["duration"] = maximum_duration;
   result["size"] = cbr2seize_ch_rri[cbrs.back()]["size"].get<int>();
@@ -578,6 +601,7 @@ json VirtualTxSduQueue::get_duration_size_rri(double current_time, double maximu
       total_byte = 0;
 
       if (_fragment != NULL) {
+
         total_byte += _fragment["lefted_size"].get<double>();
         // std::cout << __func__ << "seg , expired" << _fragment["expired_time"].get<double>() << ", current_time: " << current_time << ", duration: " << duration << std::endl;
         rri_count = (int) ((_fragment["expired_time"].get<double>() - current_time - duration) / rri) + 1;
@@ -593,6 +617,13 @@ json VirtualTxSduQueue::get_duration_size_rri(double current_time, double maximu
       for (auto ptr = _priority2packets.begin(); ptr != _priority2packets.end(); ptr++) {
         // std::cout << __func__ << ", " << (ptr->first) << std::endl;
         for (auto itr = ptr->second.begin(); itr != ptr->second.end(); itr++) {
+          // ----- Begin Proposed Method -----
+          if (ptr->first == 4 && RCT_index_in_p4 < itr - ptr->second.begin()) {
+            std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!!" << std::endl;
+            continue;
+          }
+          // ----- End Proposed Method -----
+
           total_byte += (*itr)["size"].get<double>();
           // std::cout << __func__ << ", expired" << (*itr)["expired_time"].get<double>() << ", current_time: " << current_time << ", duration: " << duration << std::endl;
           rri_count = (int) (((*itr)["expired_time"].get<double>() - current_time - duration) / rri) + 1;

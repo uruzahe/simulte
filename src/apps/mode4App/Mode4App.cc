@@ -223,17 +223,6 @@ void Mode4App::scheduleHandler(simtime_t t, cMessage * msg) {
     scheduleHandler(_pdu_sender->getArrivalTime(), _f_resource_selection);
     scheduleHandler(_pdu_sender->getArrivalTime(), selfSender_);
 
-    // if (this->_will_be_expired == true) {
-    //   this->_will_be_expired = false;
-    // } else {
-    //   // scheduleHandler(_pdu_sender->getArrivalTime(), _resource_selection);
-    //   scheduleHandler(_pdu_sender->getArrivalTime(), _f_resource_selection);
-    //   scheduleHandler(_pdu_sender->getArrivalTime(), selfSender_);
-    //
-    //   // scheduleHandler(selfSender_->getArrivalTime(), selfSender_);
-    //   // scheduleHandler(_resource_selection->getArrivalTime(), _resource_selection);
-    // }
-
   } else if (!strcmp(msg->getName(), "_cbf_resend")) {
     scheduleAt(t, msg);
 
@@ -402,18 +391,8 @@ json Mode4App::RlcHandler (std::string cmd, json packet={}) {
 
   if (cmd == "FromGeocast") {
     std::cout << __func__ << ", " << simTime() << ", sumo_id: " << sumo_id << ", arrive time" << _pdu_sender->getArrivalTime() << std::endl;
-    if (_sdu_tx_ptr->enque(_sdu_tx_ptr->update_header(packet, this->sumo_id), simTime().dbl())) {
-      // if (simTime() <= _pdu_sender->getArrivalTime() && _pdu_sender->getArrivalTime() <= simTime() + 2 * TTI) {
-      //   // std::cout << "aaa" << std::endl;
-      //   cancelEvent(_resource_selection);
-      //   scheduleAt(_pdu_sender->getArrivalTime() + 2 * TTI, _resource_selection);
-      //   // ----- do nothing -----
-      // } else {
-      //   // std::cout << "bbb" << std::endl;
-      //   cancelEvent(_resource_selection);
-      //   scheduleAt(simTime(), _resource_selection);
-
-        scheduleHandler(simTime(), _resource_selection);
+    if (_sdu_tx_ptr->enque(_sdu_tx_ptr->update_header(packet, this->sumo_id, packet["rlc"]["resource_consider_time"].get<double>()), simTime().dbl())) {
+      scheduleHandler(simTime(), _resource_selection);
     }
 
   } else if (cmd == "ToGeocast") {
@@ -534,20 +513,8 @@ void Mode4App::handleLowerMessage(cMessage* msg)
         cancelEvent(selfSender_);
         cancelEvent(_f_resource_selection);
 
-        // if (start_time - 2 * TTI <= simTime().dbl()) {
-        //   scheduleAt(simTime(), _pdu_sender);
-        // } else {
-        //   scheduleAt(start_time - 2 * TTI, _pdu_sender);
-        // }
-
       } else if (pdu_make_info_pkt->getType() == (std::string) "expired") {
         this->_will_be_expired = true;
-
-        // cancelEvent(_pdu_sender);
-        // scheduleHandler(_pdu_sender->getArrivalTime(), _pdu_sender);
-
-        // cancelEvent(_resource_selection);
-        // scheduleAt(simTime(), _resource_selection);
 
       } else if (pdu_make_info_pkt->getType() == (std::string) "will_be_expired") {
         std::cout << __func__ << ", will be expired. "<< std::endl;
@@ -611,8 +578,7 @@ void Mode4App::handleSelfMessage(cMessage* msg)
 
         } else {
           syncCarlaVeinsData(msg);
-          // cancelEvent(_resource_selection);
-          // scheduleAt(simTime(), _resource_selection);
+
         }
 
         emit(sentMsg_, (long)1);
@@ -642,6 +608,12 @@ void Mode4App::handleSelfMessage(cMessage* msg)
 
     } else if (!strcmp(msg->getName(), "_resource_selection")) {
       resource_selection();
+
+      simtime_t next_resource_select_time = (simtime_t) _sdu_tx_ptr->resource_selection_time(simTime().dbl());
+
+      if (simTime() < next_resource_select_time) {
+        scheduleHandler(next_resource_select_time, _resource_selection);
+      }
 
     } else if (!strcmp(msg->getName(), "_f_resource_selection")) {
       resource_selection();
@@ -771,7 +743,7 @@ void Mode4App::SendPacket(std::string payload, std::string type, int payload_byt
     if (CurrentPos.x <= 0) {
       // do nothing.
     } else {
-      target_dist = - target_dist;
+      target_dist = (-1) * target_dist;
     }
 
     this->FacilityHandler(
@@ -790,7 +762,8 @@ void Mode4App::SendPacket(std::string payload, std::string type, int payload_byt
         _sdu_tx_ptr->header(
           this->sumo_id,
           packet["priority"].get<int>(),
-          packet["expired_time"].get<double>()
+          packet["expired_time"].get<double>(),
+          simTime().dbl()
         )
       )
     );
@@ -881,11 +854,6 @@ void Mode4App::resource_selection() {
     };
     this->_grant_rec_logs.push_back(log.dump());
   }
-
-  // if (!(is_sdu_empty && is_reservable_time)) {
-  //   cancelEvent(_resource_selection);
-  //   scheduleAt(_pdu_sender->getArrivalTime() + 2 * TTI, _resource_selection);
-  // }
 
 }
 

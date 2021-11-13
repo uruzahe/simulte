@@ -125,8 +125,8 @@ public:
 
   VirtualTxSduQueue();
 
-  json header(std::string sender_id, int priority, double expired_time);
-  json update_header(json packet, std::string sender_id);
+  json header(std::string sender_id, int priority, double expired_time, double resource_consider_time);
+  json update_header(json packet, std::string sender_id, double resource_consider_time);
 
   json add_fragment_into_pdu(json pdu, json send_fragment, double current_time);
   void delete_expired_fragments(double current_time);
@@ -143,6 +143,7 @@ public:
 
   bool is_empty(double current_time);
   double maximum_duration(double current_time);
+  double resource_selection_time(double current_time);
   json get_duration_size_rri(double current_time, double maximum_duration);
 };
 
@@ -176,7 +177,7 @@ public:
   std::vector<struct LogData> _recv_logs;
   std::unordered_map<std::string, std::unordered_map<int, json>> _sender_id2packet_id2packet;
   std::unordered_map<std::string, std::unordered_map<int, int>> _sender_id2packet_id2packet_count;
-  std::unordered_map<double, std::vector<json>> _resend_time2packets;
+  std::map<double, std::vector<json>> _resend_time2packets;
   std::vector<double> _resend_times;
   double _last_resend_time = 0;
 
@@ -207,7 +208,7 @@ public:
   std::vector<json> resend_deque(double resend_time);
   std::vector<std::string> duplication_packets_count();
 
-  std::unordered_map<double, std::vector<json>> time2resend_packets;
+  std::map<double, std::vector<json>> time2resend_packets;
   std::vector<json> deque();
 };
 
