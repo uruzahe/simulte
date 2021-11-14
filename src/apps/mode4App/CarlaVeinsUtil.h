@@ -190,6 +190,7 @@ public:
   // double _DIST_MAX = 0;
   double _itsGnBroadcastCBFDefSectorAngle = 30;
   double _itsGnMinPacketRepetitionInterval = 0.1;
+  // double _itsGnMinPacketRepetitionInterval = 0;
   int _itsGnLocationServiceMaxRetrans = 2;
   // ----- itsGnLocationServiceMaxRetrans -----
   // ----- Default itsGnLocationServiceMaxRetrans is 10 [1]. -----

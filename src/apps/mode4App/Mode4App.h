@@ -176,6 +176,7 @@ protected:
    cMessage* _f_resource_selection;
 
    int _max_hop;
+   std::string _method_name;
 
    // ----- for eval -----
    std::vector<std::string> _cbr_logs;

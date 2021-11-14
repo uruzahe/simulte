@@ -91,6 +91,7 @@ void Mode4App::initialize(int stage)
         is_dynamic_simulation = par("is_dynamic_simulation").boolValue();
         carlaTimeStep = par("carlaTimeStep").doubleValue();
         _max_hop = par("max_hop").intValue();
+        _method_name = par("method_name").stringValue();
 
         sumo_id = mobility->external_id;
         std::cout << ", sumo_id: " << sumo_id << " is loaded. " << std::endl;
@@ -383,6 +384,10 @@ json Mode4App::GeoNetworkHandler (std::string cmd, json packet={}) {
 
   return result;
 }
+
+// json Mode4App::ProposedLayer(std::string cmd, json packet={}) {
+//
+// }
 
 json Mode4App::RlcHandler (std::string cmd, json packet={}) {
   json result = {};
