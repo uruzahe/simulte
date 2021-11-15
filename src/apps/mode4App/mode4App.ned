@@ -32,9 +32,9 @@ simple Mode4App like Mode4BaseApp
         double carlaTimeStep = default(0.1s) @unit(s);
         string carlaVeinsDataDir = default("/vagrant/carla-veins-data/");
         bool is_dynamic_simulation = default(false);
-        int sensor_num = default(1);
-        int max_cpm_size = default(240);
-        int max_hop = default(1);
+        int sensor_num = default(4);
+        int max_cpm_size = default(450);
+        int max_hop = default(10);
         string method_name = default("proposed");
         // ----- End My Params -----
 

@@ -70,7 +70,7 @@ void Mode4App::initialize(int stage)
 
         selfSender_ = new cMessage("selfSender");
 
-        size_ = par("packetSize");
+        size_ = par("packetSize").intValue() - ALL_HEADER_SIZE;
         period_ = par("period");
         priority_ = par("priority");
         duration_ = par("duration");
@@ -83,9 +83,9 @@ void Mode4App::initialize(int stage)
         // ----- My Code, Begin. -----
         EV_TRACE << "My Code" << std::endl;
 
-        max_cpm_size = par("max_cpm_size").intValue();
+        _max_cpm_size = par("max_cpm_size").intValue() - ALL_HEADER_SIZE;
         carlaVeinsDataDir = par("carlaVeinsDataDir").stringValue();
-        sensor_num = par("sensor_num").intValue();
+        _sensor_num = par("sensor_num").intValue();
         sendCPM = par("sendCPM").boolValue();
         sendBeacons = par("sendBeacons").boolValue();
         is_dynamic_simulation = par("is_dynamic_simulation").boolValue();
@@ -732,7 +732,7 @@ void Mode4App::SendPacket(std::string payload, std::string type, int payload_byt
     packet["sender_id"] = sumo_id;
     packet["max_duration"] = 100;
     packet["min_duration"] = 20; // For ensuring grant in Mac layer.
-    packet["expired_time"] = simTime().dbl() + 0.1;
+    packet["expired_time"] = simTime().dbl() + MY_PACKET_LIFE_TIME;
 
     if (type == "cam") {
       packet["priority"] = 2;
@@ -801,7 +801,7 @@ void Mode4App::syncCarlaVeinsData(cMessage* msg)
   std::vector<json> target_pos = _pos_send_ptr->filter_pos_by_etsi(_pos_ptr->data_between_time(target_start_time, target_end_time));
 
   if (!target_pos.empty()) {
-    json packet = _pos_send_ptr->convert_payload_and_size(target_pos, sensor_num, max_cpm_size);
+    json packet = _pos_send_ptr->convert_payload_and_size(target_pos, _sensor_num, _max_cpm_size);
     // // std::cout << packet["payload"].get<std::string>() << std::endl;
     if (0 < packet["size"].get<int>()) { // size 0 means that there are no enough size to contain perceived_objects.
       SendPacket(packet["payload"].get<std::string>(), "cpm", packet["size"].get<int>(), duration_, false);

@@ -581,7 +581,7 @@ json LteMacVUeMode4::past_max_rri_and_max_ch(){
 
   auto itr = _time2ch_rri.begin();
   while (itr != _time2ch_rri.end()) {
-    if (1.0 < simTime().dbl() - itr->first) {
+    if (2.0 < simTime().dbl() - itr->first) {
       itr = _time2ch_rri.erase(itr);
 
     } else {
@@ -790,7 +790,7 @@ void LteMacVUeMode4::handleMessage(cMessage *msg)
             // schedulingGrant_->setGrantedCwBytes((MAX_CODEWORDS - currentCw_), pkt->getBitLength());
             // ----- My Code -----
             schedulingGrant_->setGrantedCwBytes((MAX_CODEWORDS - currentCw_), _my_channel_num * 150 * 8);
-            
+
             if (lteInfo->getRemoveDataFromQueue() || lteInfo->getGrantBreak()) {
               delete pkt;
               return;

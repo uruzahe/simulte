@@ -156,8 +156,8 @@ protected:
    uint32_t generatedCPMs;
    uint32_t receivedCPMs;
 
-   int sensor_num;
-   int max_cpm_size;
+   int _sensor_num;
+   int _max_cpm_size;
 
    CAMs*  _cams_ptr;
    PerceivedObjectes* _pos_ptr;

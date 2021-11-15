@@ -26,6 +26,12 @@ using json = nlohmann::json;
 // 24 byte: Long Position Vector
 // 20 byte: Other information
 
+#define ALL_HEADER_SIZE (MY_MAC_HEADER_BYTE + MY_RLC_UM_HEADER_BYTE + MY_PDCP_HEADER_BYTE + MY_SDAP_HEADER_BYTE + MY_GEONETWORK_HEADER)
+
+#define MY_PACKET_LIFE_TIME 0.1
+// ----- data_between_time -----
+// This variable is equal to the life time in Transport Layer.
+
 
 class JsonDataStore
 {
@@ -188,6 +194,11 @@ public:
   double _DIST_MAX = 1000;
   // double _DIST_MAX = 400;
   // double _DIST_MAX = 0;
+
+  double _PROPOSED_DIST_RATE = 0.5; // PDR(distance=500m) >= 90% 
+  double _DIST_MIN = _DIST_MAX * _PROPOSED_DIST_RATE;
+
+
   double _itsGnBroadcastCBFDefSectorAngle = 30;
   double _itsGnMinPacketRepetitionInterval = 0.1;
   // double _itsGnMinPacketRepetitionInterval = 0;
