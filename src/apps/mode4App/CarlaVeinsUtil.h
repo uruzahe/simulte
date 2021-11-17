@@ -195,14 +195,15 @@ public:
   // double _DIST_MAX = 400;
   // double _DIST_MAX = 0;
 
-  double _PROPOSED_DIST_RATE = 0.5; // PDR(distance=500m) >= 90% 
+  double _PROPOSED_DIST_RATE = 0.0; // PDR(distance=500m) >= 90%
   double _DIST_MIN = _DIST_MAX * _PROPOSED_DIST_RATE;
 
 
   double _itsGnBroadcastCBFDefSectorAngle = 30;
   double _itsGnMinPacketRepetitionInterval = 0.1;
   // double _itsGnMinPacketRepetitionInterval = 0;
-  int _itsGnLocationServiceMaxRetrans = 2;
+  // int _itsGnLocationServiceMaxRetrans = 2;
+  int _MAX_CBF_PACKET_COUNT = 2;
   // ----- itsGnLocationServiceMaxRetrans -----
   // ----- Default itsGnLocationServiceMaxRetrans is 10 [1]. -----
   // ----- However, we set the value as 1 to mitigate broadcast storm -----

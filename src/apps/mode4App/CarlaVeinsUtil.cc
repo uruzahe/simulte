@@ -799,7 +799,10 @@ json VirtualGeoNetwork::header(double sender_pos_x, double sender_pos_y, double 
     {"dest_pos_x", dest_pos_x},
     {"dest_pos_y", dest_pos_y},
     {"hop_limit", hop_limit},
-    {"expired_time", expired_time}
+    {"expired_time", expired_time},
+    {"target_center_x", sender_pos_x},
+    {"target_center_y", sender_pos_y},
+    {"target_radius", 1000}
   };
 
   _packet_id++;
@@ -899,12 +902,19 @@ double VirtualGeoNetwork::CBF_resend_time(json packet, inet::Coord recver_pos, d
   double dest_pos_x = packet["geocast"]["dest_pos_x"].get<double>();
   double dest_pos_y = packet["geocast"]["dest_pos_y"].get<double>();
 
+  double target_center_x = packet["geocast"]["target_center_x"].get<double>();
+  double target_center_y = packet["geocast"]["target_center_y"].get<double>();
+  double target_radius = packet["geocast"]["target_radius"].get<double>();
+
   double diff_sender_dest_x = dest_pos_x - sender_pos_x;
   double diff_sender_dest_y = dest_pos_y - sender_pos_y;
   double diff_sender_recver_x = recver_pos_x - sender_pos_x;
   double diff_sender_recver_y = recver_pos_y - sender_pos_y;
   // double diff_recver_dest_x = dest_pos_x - recver_pos_x;
   // double diff_recver_dest_y = dest_pos_y - recver_pos_y;
+
+  double diff_sender_target_x = target_center_x - sender_pos_x;
+  double diff_sender_target_y = target_center_y - sender_pos_y;
 
 
   double dist_sender_dest = sqrt(diff_sender_dest_x * diff_sender_dest_x + diff_sender_dest_y * diff_sender_dest_y);
@@ -913,19 +923,28 @@ double VirtualGeoNetwork::CBF_resend_time(json packet, inet::Coord recver_pos, d
 
   double cos_angle = (diff_sender_dest_x * diff_sender_recver_x + diff_sender_dest_y * diff_sender_recver_y) / (dist_sender_dest * dist_sender_recver);
 
+  // ----- Begin Modification -----
+  // ----- New Code -----
+  // ----- Validation F(x, y) in ETSI -----
+  double F = 1 - ( (diff_sender_target_x * diff_sender_target_x) + (diff_sender_target_y * diff_sender_target_y) ) / (target_radius * target_radius);
+  if (F < 0) {
+    return resend_time;
+  }
+  // ----- Old Code -----
   // std::cout << __func__ << ", cos_angle: " << cos_angle << std::endl;
-  if (cos_angle < cos(_itsGnBroadcastCBFDefSectorAngle)) {
-    return resend_time;
-
-  }
-  if (dist_sender_dest <= dist_sender_recver) {
-    return resend_time;
-
-  }
+  // if (cos_angle < cos(this->_itsGnBroadcastCBFDefSectorAngle)) {
+  //   return resend_time;
+  //
+  // }
+  // if (dist_sender_dest <= dist_sender_recver) {
+  //   return resend_time;
+  //
+  // }
 
   // if (dist_sender_dest <= _DIST_MAX / 2.0) {
   //   return resend_time;
   // }
+  // ----- End Modification -----
 
   // ----- Proposed Method -----
   if (dist_sender_recver <= _DIST_MIN) {
@@ -976,7 +995,7 @@ bool VirtualGeoNetwork::is_resend(json packet) {
   int packet_id = packet["geocast"]["packet_id"].get<int>();
 
   // std::cout << __func__ << ", Geonet Duplication: " << _sender_id2packet_id2packet_count[sender_id][packet_id] << std::endl;
-  if (this->_itsGnLocationServiceMaxRetrans <= _sender_id2packet_id2packet_count[sender_id][packet_id]) {
+  if (this->_MAX_CBF_PACKET_COUNT <= _sender_id2packet_id2packet_count[sender_id][packet_id]) {
     return false;
   } else {
     return true;
