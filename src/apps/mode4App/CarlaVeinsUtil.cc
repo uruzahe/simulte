@@ -285,7 +285,7 @@ void VirtualTxSduQueue::delete_expired_fragments(double current_time)
     while (itr != ptr->second.end()) {
       // std::cout << "in loop: " << (*itr) << std::endl;
       if ((*itr)["expired_time"].get<double>() <= current_time) {
-        ptr->second.erase(itr);
+        itr = ptr->second.erase(itr);
       } else {
         itr++;
       }
@@ -338,7 +338,8 @@ json VirtualTxSduQueue::formatted_pdu(int maximum_size, double current_time) {
 bool VirtualTxSduQueue::enque(json packet, double current_time)
 {
   // ----- Since too short expired time frequnetly occurs grant break, we ignore such the packet. -----
-  if (packet["rlc"]["expired_time"].get<double>() < current_time - this->_min_rri) {
+  // if (packet["rlc"]["expired_time"].get<double>() < current_time - this->_min_rri) {
+  if (packet["rlc"]["expired_time"].get<double>() < current_time) {
     return false;
   }
 
@@ -447,8 +448,10 @@ json VirtualTxSduQueue::generate_PDU(int maximum_byte, double current_time)
   for (auto ptr = _priority2packets.begin(); ptr != _priority2packets.end(); ptr++) {
     auto itr = ptr->second.begin();
 
+    std::cout << __func__ << ", " << current_time << ", priority: " << ptr->first << std::endl;
     while (itr != ptr->second.end()) {
       _fragment = this->formatted_fragment(*itr, (*itr)["size"].get<int>(), 1, 0, (*itr)["size"].get<int>());
+      std::cout << __func__ << ", " << current_time << ", _fragment: " << _fragment << std::endl;
 
       pdu = this->update_pdu_by_fragment(pdu, current_time);
 
@@ -461,41 +464,75 @@ json VirtualTxSduQueue::generate_PDU(int maximum_byte, double current_time)
   }
 
   // ----- substruct (MAC_HEADER + RLC_HEADER_UM + PDCP_HEADER_UM) because these value will be added in low layer in OpenCV2X. -----
-  pdu["size"] = pdu["size"].get<int>() - (MAC_HEADER + RLC_HEADER_UM + PDCP_HEADER_UM);
+  // std::cout << __func__ << ", size: " << pdu["size"].get<int>() << ", in overhead: "  << a
+  pdu["size"] = max(1.0, (double) (pdu["size"].get<int>() - (MAC_HEADER + RLC_HEADER_UM + PDCP_HEADER_UM)));
 
   return pdu;
 }
 
-
-
-json VirtualTxSduQueue::minimum_Bps(double current_time)
-{
-
+int VirtualTxSduQueue::leftted_size_in_PDU(int maximum_byte, double current_time) {
   // std::cout << __func__ << ", Begin." << std::endl;
-  double total_byte = 0;
-
-  json result;
-  std::vector<double> bps_vec = {0};
-  std::vector<double> rri_vec;
-
   this->delete_expired_fragments(current_time);
 
+  int total_size = 0;
   if (_fragment != NULL) {
-    total_byte += _fragment["lefted_size"].get<double>();
-    rri_vec.push_back(_fragment["expired_time"].get<double>() - current_time);
-    bps_vec.push_back(total_byte / rri_vec.back());
+    total_size = _fragment["end_byte"].get<int>() - _fragment["start_byte"].get<int>() + MY_MAC_HEADER_BYTE + MY_RLC_UM_HEADER_BYTE;
   }
 
   for (auto ptr = _priority2packets.begin(); ptr != _priority2packets.end(); ptr++) {
     for (auto itr = ptr->second.begin(); itr != ptr->second.end(); itr++) {
-      total_byte += (*itr)["size"].get<double>();
-      rri_vec.push_back((*itr)["expired_time"].get<double>() - current_time);
-      bps_vec.push_back(total_byte / rri_vec.back());
+      total_size = (*itr)["size"].get<int>() + MY_MAC_HEADER_BYTE + MY_RLC_UM_HEADER_BYTE;
+
+      if (maximum_byte <= total_size) {
+        return 0;
+
+      } else {
+        continue;
+
+      }
     }
   }
 
-  return *std::max_element(bps_vec.begin(), bps_vec.end());
+  if (maximum_byte <= total_size) {
+    return 0;
+
+  } else {
+    return maximum_byte - total_size;
+
+  }
 }
+
+
+
+
+// json VirtualTxSduQueue::minimum_Bps(double current_time)
+// {
+//
+//   // std::cout << __func__ << ", Begin." << std::endl;
+//   double total_byte = 0;
+//
+//   json result;
+//   std::vector<double> bps_vec = {0};
+//   std::vector<double> rri_vec;
+//
+//   this->delete_expired_fragments(current_time);
+//
+//   if (_fragment != NULL) {
+//     total_byte += _fragment["lefted_size"].get<double>();
+//     rri_vec.push_back(_fragment["expired_time"].get<double>() - current_time);
+//     bps_vec.push_back(total_byte / rri_vec.back());
+//   }
+//
+//   for (auto ptr = _priority2packets.begin(); ptr != _priority2packets.end(); ptr++) {
+//     for (auto itr = ptr->second.begin(); itr != ptr->second.end(); itr++) {
+//       total_byte += (*itr)["size"].get<double>();
+//       rri_vec.push_back((*itr)["expired_time"].get<double>() - current_time);
+//       bps_vec.push_back(total_byte / rri_vec.back());
+//     }
+//   }
+//
+//   return *std::max_element(bps_vec.begin(), bps_vec.end());
+// }
 
 json VirtualTxSduQueue::Bps2packet_size_and_rri(double minimum_Bps)
 {
@@ -889,7 +926,7 @@ double VirtualGeoNetwork::CBF_resend_time(json packet, inet::Coord recver_pos, d
   }
 
   // ----- (4) of GN-DATA.confirm -----
-  if (current_time - this->_last_resend_time < this->_itsGnMinPacketRepetitionInterval) {
+  if (current_time - this->_last_resend_time <= this->_itsGnMinPacketRepetitionInterval) {
     return resend_time;
   }
 
@@ -1004,7 +1041,12 @@ bool VirtualGeoNetwork::is_resend(json packet) {
 
 
 std::vector<json> VirtualGeoNetwork::resend_deque(double resend_time) {
-  std::vector<json> packets;
+  std::vector<json> packets = {};
+
+  // ----- (4) of GN-DATA.confirm -----
+  if (resend_time - this->_last_resend_time <= this->_itsGnMinPacketRepetitionInterval) {
+    return packets;
+  }
 
   for (auto itr = _resend_time2packets[resend_time].begin(); itr != _resend_time2packets[resend_time].end(); itr++) {
     if (!this->is_resend(*itr)) {
@@ -1019,6 +1061,44 @@ std::vector<json> VirtualGeoNetwork::resend_deque(double resend_time) {
   }
 
   _resend_time2packets.erase(resend_time);
+
+  return packets;
+}
+
+
+std::vector<json> VirtualGeoNetwork::resend_deque_by_resource(double current_time, double duration, int lefted_size, int lowlayer_overhead) {
+  std::vector<json> packets = {};
+  int total_size = 0;
+
+  // ----- (4) of GN-DATA.confirm -----
+  auto itr = _resend_time2packets.begin();
+  while (itr != _resend_time2packets.end()) {
+
+    // std::cout << itr->first << ", " << current_time << std::endl;
+    if (itr->first < current_time) {
+      itr = _resend_time2packets.erase(itr);
+
+    } else if (itr->first - current_time < duration) {
+      itr++;
+
+    } else {
+      auto jtr = itr->second.begin();
+
+      while (jtr != itr->second.end()) {
+        // std::cout << (*jtr) << std::endl;
+        if (total_size + (*jtr)["size"].get<int>() + lowlayer_overhead <= lefted_size) {
+          total_size += (*jtr)["size"].get<int>() + lowlayer_overhead;
+
+          packets.push_back(*jtr);
+          jtr = itr->second.erase(jtr);
+        } else {
+          jtr++;
+        }
+      }
+
+      itr++;
+    }
+  }
 
   return packets;
 }

@@ -377,6 +377,29 @@ json Mode4App::GeoNetworkHandler (std::string cmd, json packet={}) {
       _network_ptr->_resend_times.pop_back();
     }
 
+  } else if (cmd == "Fetch") {
+    std::cout << __func__ << ", " << simTime() << ", Fetch" << ", packet: " << packet << std::endl;
+    std::vector<json> resend_packets = _network_ptr->resend_deque_by_resource(
+      simTime().dbl(),
+      packet["duration"].get<double>(),
+      packet["lefted_size"].get<int>(),
+      packet["lowlayer_overhead"].get<int>()
+    );
+
+    for (auto itr = resend_packets.begin(); itr != resend_packets.end(); itr++) {
+      this->RlcHandler(
+        "FromGeocastAfterFetch",
+        _network_ptr->enque(
+          _network_ptr->update_header(
+            *itr,
+            mobility->getCurrentPosition()
+          ),
+          simTime().dbl()
+        )
+      );
+    }
+
+
   } else {
     throw cRuntimeError("Unknown cmd");
 
@@ -395,18 +418,40 @@ json Mode4App::RlcHandler (std::string cmd, json packet={}) {
   // std::cout << __func__ << ", " << simTime() << ", sumo_id: " << sumo_id << ", pakcet" << packet << std::endl;
 
   if (cmd == "FromGeocast") {
+    packet["size"] = packet["size"].get<int>() + MY_PDCP_HEADER_BYTE + MY_SDAP_HEADER_BYTE;
+
     std::cout << __func__ << ", " << simTime() << ", sumo_id: " << sumo_id << ", arrive time" << _pdu_sender->getArrivalTime() << std::endl;
     if (_sdu_tx_ptr->enque(_sdu_tx_ptr->update_header(packet, this->sumo_id, packet["rlc"]["resource_consider_time"].get<double>()), simTime().dbl())) {
       scheduleHandler(simTime(), _resource_selection);
     }
 
+  } else if (cmd == "FromGeocastAfterFetch") {
+    packet["size"] = packet["size"].get<int>() + MY_PDCP_HEADER_BYTE + MY_SDAP_HEADER_BYTE;
+
+    if (_sdu_tx_ptr->enque(_sdu_tx_ptr->update_header(packet, this->sumo_id, packet["rlc"]["resource_consider_time"].get<double>()), simTime().dbl())) {
+      // do nothing
+    }
+
   } else if (cmd == "ToGeocast") {
+    packet["size"] = packet["size"].get<int>() - MY_PDCP_HEADER_BYTE - MY_SDAP_HEADER_BYTE;
     return this->GeoNetworkHandler("FromRlc", packet);
 
   } else if (cmd == "FromPhy") {
 
   } else if (cmd == "ToPhy") {
-    // std::cout << __func__ << simTime() << "ToPhy" << std::endl;
+    std::cout << __func__ << simTime() << "ToPhy" << std::endl;
+    if (this->_method_name == "proposed" && false) {
+      json pdu_info;
+
+      pdu_info["duration"] = _pdu_sender->getArrivalTime().dbl() - simTime().dbl();
+      pdu_info["lefted_size"] = _sdu_tx_ptr->leftted_size_in_PDU(_sdu_tx_ptr->_ch2size[_current_ch], simTime().dbl());
+      pdu_info["lowlayer_overhead"] = MY_PDCP_HEADER_BYTE + MY_SDAP_HEADER_BYTE + MY_RLC_UM_HEADER_BYTE + MY_MAC_HEADER_BYTE;
+
+      if (0 < pdu_info["lefted_size"].get<int>()) {
+        GeoNetworkHandler("Fetch", pdu_info);
+      }
+    }
+
     this->StachSendPDU();
 
   } else {
@@ -684,7 +729,7 @@ void Mode4App::SendPacket(std::string payload, std::string type, int payload_byt
   if (type == "pdu" || type == "reselection" || type == "resource_expire") {
 
     try {
-      // std::cout << "payload: " << payload << "\n, size: " << payload_byte_size << "\n, duration_ms: " << duration_ms << std::endl;
+      // std::cout << "payload: " << payload << "\n, size: " << payload_byte_size << "\n, duration_ms: " << duration_ms << "\n, type: " << type << std::endl;
       veins::VeinsCarlaPacket* packet = new veins::VeinsCarlaPacket();
 
       packet->setPayload(payload.c_str());
@@ -714,6 +759,7 @@ void Mode4App::SendPacket(std::string payload, std::string type, int payload_byt
       if (type == "resource_expire") {
         lteControlInfo->setGrantBreak(true);
       }
+      lteControlInfo->setType(type.c_str());
 
       packet->setControlInfo(lteControlInfo);
 

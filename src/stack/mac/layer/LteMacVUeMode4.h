@@ -125,6 +125,7 @@ protected:
 
    json past_max_rri_and_max_ch();
    json formatted_resource(int ch, double rri);
+   void forceDrop();
    // ----- End My Code -----
 
 //   // Lte AMC module

@@ -575,13 +575,26 @@ json LteMacVUeMode4::formatted_resource(int ch, double rri){
   return { {"ch", ch}, {"rri", rri} };
 }
 
+void LteMacVUeMode4::forceDrop() {
+  HarqTxBuffers::iterator it2;
+  for(it2 = harqTxBuffers_.begin(); it2 != harqTxBuffers_.end(); it2++)
+  {
+      UnitList ul = it2->second->firstAvailable();
+      it2->second->forceDropProcess(ul.first);
+  }
+}
+
 json LteMacVUeMode4::past_max_rri_and_max_ch(){
   int max_ch = 1;
   double max_rri = 1.0;
 
+  // ----- DEBUG -----
+  // _time2ch_rri.clear();
+  // ----- DEBUG -----
+
   auto itr = _time2ch_rri.begin();
   while (itr != _time2ch_rri.end()) {
-    if (2.0 < simTime().dbl() - itr->first) {
+    if (1.0 < simTime().dbl() - itr->first) {
       itr = _time2ch_rri.erase(itr);
 
     } else {
@@ -690,14 +703,15 @@ void LteMacVUeMode4::handleMessage(cMessage *msg)
             }
 
             if (lteInfo->getGrantBreak()) {
-              PduMakeInfo* pdu_make_info_pkt = new PduMakeInfo("PduMakeInfo");
-              pdu_make_info_pkt->setType("expired");
-              sendUpperPackets(pdu_make_info_pkt);
+              // PduMakeInfo* pdu_make_info_pkt = new PduMakeInfo("PduMakeInfo");
+              // pdu_make_info_pkt->setType("expired");
+              // sendUpperPackets(pdu_make_info_pkt);
+              //
+              // emit(grantBreakTiming, 1);
+              // delete schedulingGrant_;
+              // schedulingGrant_ = NULL;
 
-              emit(grantBreakTiming, 1);
-              delete schedulingGrant_;
-              schedulingGrant_ = NULL;
-
+              forceDrop();
               delete pkt;
               return;
             }
@@ -747,7 +761,7 @@ void LteMacVUeMode4::handleMessage(cMessage *msg)
             } else {
               // is_required_more_cr = true;
               // res = this->formatted_resource(lteInfo->getMyChannelNum(), lteInfo->getMyRri());
-
+              //
               _time2ch_rri.clear();
             }
 
@@ -757,7 +771,9 @@ void LteMacVUeMode4::handleMessage(cMessage *msg)
               _my_rri = res["rri"].get<double>();
             }
 
-            _time2ch_rri[simTime().dbl()] = (json){ {"ch", lteInfo->getMyChannelNum()}, {"rri", lteInfo->getMyRri()} };
+            if ((std::string) lteInfo->getType() == "reselection") {
+              _time2ch_rri[simTime().dbl()] = (json){ {"ch", lteInfo->getMyChannelNum()}, {"rri", lteInfo->getMyRri()} };
+            }
             // ----- End My Code -----
 
             std::cout << __func__ << ", " << simTime() << ", schedulingGrant_: " << schedulingGrant_ << ", is_required_more_cr: " << is_required_more_cr << ", periodCounter_ * SLOT_2_MS: " << periodCounter_ * SLOT_2_MS << ", remainingTime_: " << remainingTime_ << std::endl;
@@ -768,9 +784,9 @@ void LteMacVUeMode4::handleMessage(cMessage *msg)
             else if ((schedulingGrant_ != NULL && periodCounter_ * SLOT_2_MS > remainingTime_ && !is_first_trans))
             {
                 // ----- Begin My Code -----
-                PduMakeInfo* pdu_make_info_pkt = new PduMakeInfo("PduMakeInfo");
-                pdu_make_info_pkt->setType("expired");
-                sendUpperPackets(pdu_make_info_pkt);
+                // PduMakeInfo* pdu_make_info_pkt = new PduMakeInfo("PduMakeInfo");
+                // pdu_make_info_pkt->setType("expired");
+                // sendUpperPackets(pdu_make_info_pkt);
                 // ----- End My Code -----
 
                 emit(grantBreakTiming, 1);
@@ -1475,9 +1491,9 @@ void LteMacVUeMode4::flushHarqBuffers()
                         {
 
                             // ----- Begin My Code -----
-                            PduMakeInfo* pdu_make_info_pkt = new PduMakeInfo("PduMakeInfo");
-                            pdu_make_info_pkt->setType("expired");
-                            sendUpperPackets(pdu_make_info_pkt);
+                            // PduMakeInfo* pdu_make_info_pkt = new PduMakeInfo("PduMakeInfo");
+                            // pdu_make_info_pkt->setType("expired");
+                            // sendUpperPackets(pdu_make_info_pkt);
                             // ----- End My Code -----
 
                             delete schedulingGrant_;

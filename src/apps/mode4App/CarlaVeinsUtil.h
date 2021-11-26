@@ -146,6 +146,7 @@ public:
   json update_pdu_by_fragment(json pdu, double current_time);
   json Bps2packet_size_and_rri(double minimum_Bps);
 
+  int leftted_size_in_PDU(int maximum_byte, double current_time);
 
   bool is_empty(double current_time);
   double maximum_duration(double current_time);
@@ -200,8 +201,8 @@ public:
 
 
   double _itsGnBroadcastCBFDefSectorAngle = 30;
-  double _itsGnMinPacketRepetitionInterval = 0.1;
-  // double _itsGnMinPacketRepetitionInterval = 0;
+  // double _itsGnMinPacketRepetitionInterval = 0.1;
+  double _itsGnMinPacketRepetitionInterval = 0;
   // int _itsGnLocationServiceMaxRetrans = 2;
   int _MAX_CBF_PACKET_COUNT = 2;
   // ----- itsGnLocationServiceMaxRetrans -----
@@ -219,6 +220,7 @@ public:
   double CBF_resend_time(json packet, inet::Coord recver_pos, double current_time);
   void resend_enque(double resend_time, json packet);
   std::vector<json> resend_deque(double resend_time);
+  std::vector<json> resend_deque_by_resource(double current_time, double duration, int leftted_size, int lowlayer_overhead);
   std::vector<std::string> duplication_packets_count();
 
   std::map<double, std::vector<json>> time2resend_packets;
