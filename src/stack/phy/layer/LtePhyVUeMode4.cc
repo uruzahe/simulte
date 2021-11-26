@@ -522,7 +522,7 @@ RbMap LtePhyVUeMode4::sendSciMessage(cMessage* msg, UserControlInfo* lteInfo)
     SidelinkControlInformation* SCI = createSCIMessage();
     LteAirFrame* sciFrame = prepareAirFrame(SCI, SCIInfo);
 
-    // std::cout << __func__ << ", " << simTime() << ", sci channel num: " << sciGrant_->getNumSubchannels() << ", sci startting channel: " << sciGrant_->getStartingSubchannel() << std::endl;
+    // // std::cout << __func__ << ", " << simTime() << ", sci channel num: " << sciGrant_->getNumSubchannels() << ", sci startting channel: " << sciGrant_->getStartingSubchannel() << std::endl;
     emit(sciSent, 1);
     emit(subchannelSent, sciGrant_->getStartingSubchannel());
     emit(subchannelsUsedToSend, sciGrant_->getNumSubchannels());
@@ -897,7 +897,7 @@ void LtePhyVUeMode4::computeCSRs(LteMode4SchedulingGrant* &grant) {
         optimalCSRs = orderedCSRs;
     }
 
-    // std::cout << __func__ << ", " << simTime() << ", CSRs size: " << optimalCSRs.size() << std::endl;
+    // // std::cout << __func__ << ", " << simTime() << ", CSRs size: " << optimalCSRs.size() << std::endl;
 
     // Send the packet up to the MAC layer where it will choose the CSR and the retransmission if that is specified
     // Need to generate the message that is to be sent to the upper layers.
@@ -1632,7 +1632,7 @@ void LtePhyVUeMode4::updateCBR()
         cbrCount --;
     }
 
-    // std::cout << __func__ << ", " << simTime() << ", totalSubchannels: " << totalSubchannels << ", cbrValue: " << cbrValue << std::endl;
+    // // std::cout << __func__ << ", " << simTime() << ", totalSubchannels: " << totalSubchannels << ", cbrValue: " << cbrValue << std::endl;
     cbrValue = cbrValue / totalSubchannels;
 
     emit(cbr, cbrValue);

@@ -105,7 +105,8 @@ class VirtualTxSduQueue
 public:
   json _fragment;
   int _past_fragment_count = 0;
-  std::unordered_map<int, json> _priority2packets;
+  // std::unordered_map<int, json> _priority2packets;
+  std::map<int, json> _priority2packets;
 
   int _packet_id;
   double _delete_expired_time;
