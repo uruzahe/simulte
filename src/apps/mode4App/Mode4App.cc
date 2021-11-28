@@ -352,6 +352,11 @@ json Mode4App::GeoNetworkHandler (std::string cmd, json packet={}) {
     std::vector<json> resend_packets = _network_ptr->resend_deque(simTime().dbl());
 
     for (auto itr = resend_packets.begin(); itr != resend_packets.end(); itr++) {
+      // ----- Proposed -----
+      // if (this->_method_name == "proposed") {
+      //
+      // }
+
       this->RlcHandler(
         "FromGeocast",
         _network_ptr->enque(
@@ -408,9 +413,6 @@ json Mode4App::GeoNetworkHandler (std::string cmd, json packet={}) {
   return result;
 }
 
-// json Mode4App::ProposedLayer(std::string cmd, json packet={}) {
-//
-// }
 
 json Mode4App::RlcHandler (std::string cmd, json packet={}) {
   json result = {};
@@ -421,14 +423,22 @@ json Mode4App::RlcHandler (std::string cmd, json packet={}) {
     packet["size"] = packet["size"].get<int>() + MY_PDCP_HEADER_BYTE + MY_SDAP_HEADER_BYTE;
 
     // std::cout << __func__ << ", " << simTime() << ", sumo_id: " << sumo_id << ", arrive time" << _pdu_sender->getArrivalTime() << std::endl;
-    if (_sdu_tx_ptr->enque(_sdu_tx_ptr->update_header(packet, this->sumo_id, packet["rlc"]["resource_consider_time"].get<double>()), simTime().dbl())) {
+    if (_sdu_tx_ptr->enque(_sdu_tx_ptr->update_header(packet, this->sumo_id, packet["rlc"]["resource_consider_time"].get<double>()), simTime().dbl(), _sdu_tx_ptr->_min_rri)) {
+      scheduleHandler(simTime(), _resource_selection);
+    }
+
+  } else if (cmd == "FromGeocastAfterContention") {
+    packet["size"] = packet["size"].get<int>() + MY_PDCP_HEADER_BYTE + MY_SDAP_HEADER_BYTE;
+
+    // std::cout << __func__ << ", " << simTime() << ", sumo_id: " << sumo_id << ", arrive time" << _pdu_sender->getArrivalTime() << std::endl;
+    if (_sdu_tx_ptr->enque(_sdu_tx_ptr->update_header(packet, this->sumo_id, packet["rlc"]["resource_consider_time"].get<double>()), simTime().dbl(), _sdu_tx_ptr->_min_rri)) {
       scheduleHandler(simTime(), _resource_selection);
     }
 
   } else if (cmd == "FromGeocastAfterFetch") {
     packet["size"] = packet["size"].get<int>() + MY_PDCP_HEADER_BYTE + MY_SDAP_HEADER_BYTE;
 
-    if (_sdu_tx_ptr->enque(_sdu_tx_ptr->update_header(packet, this->sumo_id, packet["rlc"]["resource_consider_time"].get<double>()), simTime().dbl())) {
+    if (_sdu_tx_ptr->enque(_sdu_tx_ptr->update_header(packet, this->sumo_id, packet["rlc"]["resource_consider_time"].get<double>()), simTime().dbl(), _sdu_tx_ptr->_min_rri)) {
       // do nothing
     }
 
@@ -440,17 +450,17 @@ json Mode4App::RlcHandler (std::string cmd, json packet={}) {
 
   } else if (cmd == "ToPhy") {
     // std::cout << __func__ << simTime() << "ToPhy" << std::endl;
-    if (this->_method_name == "proposed") {
-      json pdu_info;
-
-      pdu_info["duration"] = _pdu_sender->getArrivalTime().dbl() - simTime().dbl();
-      pdu_info["lefted_size"] = _sdu_tx_ptr->leftted_size_in_PDU(_sdu_tx_ptr->_ch2size[_current_ch], simTime().dbl());
-      pdu_info["lowlayer_overhead"] = MY_PDCP_HEADER_BYTE + MY_SDAP_HEADER_BYTE + MY_RLC_UM_HEADER_BYTE + MY_MAC_HEADER_BYTE;
-
-      if (0 < pdu_info["lefted_size"].get<int>()) {
-        GeoNetworkHandler("Fetch", pdu_info);
-      }
-    }
+    // if (this->_method_name == "proposed") {
+    //   json pdu_info;
+    //
+    //   pdu_info["duration"] = _pdu_sender->getArrivalTime().dbl() - simTime().dbl();
+    //   pdu_info["lefted_size"] = _sdu_tx_ptr->leftted_size_in_PDU(_sdu_tx_ptr->_ch2size[_current_ch], simTime().dbl());
+    //   pdu_info["lowlayer_overhead"] = MY_PDCP_HEADER_BYTE + MY_SDAP_HEADER_BYTE + MY_RLC_UM_HEADER_BYTE + MY_MAC_HEADER_BYTE;
+    //
+    //   if (0 < pdu_info["lefted_size"].get<int>()) {
+    //     GeoNetworkHandler("Fetch", pdu_info);
+    //   }
+    // }
 
     this->StachSendPDU();
 
@@ -667,6 +677,18 @@ void Mode4App::handleSelfMessage(cMessage* msg)
 
     } else if (!strcmp(msg->getName(), "_f_resource_selection")) {
       resource_selection();
+
+      if (this->_method_name == "proposed") {
+        json pdu_info;
+
+        pdu_info["duration"] = _pdu_sender->getArrivalTime().dbl() - simTime().dbl();
+        pdu_info["lefted_size"] = _sdu_tx_ptr->leftted_size_in_PDU(_sdu_tx_ptr->_ch2size[_current_ch], simTime().dbl());
+        pdu_info["lowlayer_overhead"] = MY_PDCP_HEADER_BYTE + MY_SDAP_HEADER_BYTE + MY_RLC_UM_HEADER_BYTE + MY_MAC_HEADER_BYTE;
+
+        if (0 < pdu_info["lefted_size"].get<int>()) {
+          GeoNetworkHandler("Fetch", pdu_info);
+        }
+      }
 
     } else {
       throw cRuntimeError("Mode4App::handleMessage - Unrecognized self message");

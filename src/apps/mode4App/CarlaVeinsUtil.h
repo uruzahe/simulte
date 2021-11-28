@@ -137,7 +137,7 @@ public:
 
   json add_fragment_into_pdu(json pdu, json send_fragment, double current_time);
   void delete_expired_fragments(double current_time);
-  bool enque(json packet, double current_time);
+  bool enque(json packet, double current_time, double min_duration);
   // json formatted_packet(std::string payload, std::string type, int payload_byte_size, double current_time, double duration);
   json formatted_fragment(json packet, int leftted_size, int status_flag, int start_byte, int end_byte);
   json formatted_pdu(int maximum_size, double current_time);
@@ -202,8 +202,7 @@ public:
 
 
   double _itsGnBroadcastCBFDefSectorAngle = 30;
-  // double _itsGnMinPacketRepetitionInterval = 0.1;
-  double _itsGnMinPacketRepetitionInterval = 0;
+  double _itsGnMinPacketRepetitionInterval = 0; // Unused Parameter because we do not use retransmission.
   // int _itsGnLocationServiceMaxRetrans = 2;
   int _MAX_CBF_PACKET_COUNT = 2;
   // ----- itsGnLocationServiceMaxRetrans -----

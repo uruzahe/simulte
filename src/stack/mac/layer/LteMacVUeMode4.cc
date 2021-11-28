@@ -762,7 +762,7 @@ void LteMacVUeMode4::handleMessage(cMessage *msg)
               // is_required_more_cr = true;
               // res = this->formatted_resource(lteInfo->getMyChannelNum(), lteInfo->getMyRri());
               //
-              _time2ch_rri.clear();
+              // _time2ch_rri.clear();
             }
 
             is_required_more_cr = is_required_more_cr || (schedulingGrant_ == NULL);

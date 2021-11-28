@@ -338,11 +338,11 @@ json VirtualTxSduQueue::formatted_pdu(int maximum_size, double current_time) {
   return pdu;
 }
 
-bool VirtualTxSduQueue::enque(json packet, double current_time)
+bool VirtualTxSduQueue::enque(json packet, double current_time, double min_duration)
 {
   // ----- Since too short expired time frequnetly occurs grant break, we ignore such the packet. -----
-  // if (packet["rlc"]["expired_time"].get<double>() < current_time - this->_min_rri) {
-  if (packet["rlc"]["expired_time"].get<double>() < current_time) {
+  if (packet["rlc"]["expired_time"].get<double>() < current_time - min_duration) {
+  // if (packet["rlc"]["expired_time"].get<double>() < current_time) {
     return false;
   }
 
@@ -1089,15 +1089,13 @@ std::vector<json> VirtualGeoNetwork::resend_deque_by_resource(double current_tim
     if (itr->first < current_time) {
       itr = _resend_time2packets.erase(itr);
 
-    } else if (itr->first - current_time < duration) {
-      itr++;
-
     } else {
       auto jtr = itr->second.begin();
 
       while (jtr != itr->second.end()) {
         // std::cout << (*jtr) << std::endl;
-        if (total_size + (*jtr)["size"].get<int>() + lowlayer_overhead <= lefted_size) {
+        std::cout << __func__ << ", duration: " << duration << ", expired_time: " << (*jtr)["geocast"]["expired_time"].get<double>() << ", current_time: " << current_time << std::endl;
+        if (total_size + (*jtr)["size"].get<int>() + lowlayer_overhead <= lefted_size && duration <= (*jtr)["geocast"]["expired_time"].get<double>() - current_time) {
           total_size += (*jtr)["size"].get<int>() + lowlayer_overhead;
 
           packets.push_back(*jtr);
