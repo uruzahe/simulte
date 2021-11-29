@@ -590,11 +590,12 @@ json LteMacVUeMode4::past_max_rri_and_max_ch(){
 
   // ----- DEBUG -----
   // _time2ch_rri.clear();
+  return this->formatted_resource(max_ch, max_rri);
   // ----- DEBUG -----
 
   auto itr = _time2ch_rri.begin();
   while (itr != _time2ch_rri.end()) {
-    if (1.0 < simTime().dbl() - itr->first) {
+    if (1.5 < simTime().dbl() - itr->first) {
       itr = _time2ch_rri.erase(itr);
 
     } else {
@@ -740,6 +741,7 @@ void LteMacVUeMode4::handleMessage(cMessage *msg)
 
             int required_res = lteInfo->getMyChannelNum() / lteInfo->getMyRri();
             json res = this->past_max_rri_and_max_ch();
+            json past_res = res;
 
             // ----- set is_first_trans -----
             if (schedulingGrant_ != NULL) {
@@ -749,7 +751,7 @@ void LteMacVUeMode4::handleMessage(cMessage *msg)
               res = this->formatted_resource(m4G->getNumSubchannels(), (m4G->getPeriod() * SLOT_2_MS / 100.0));
             }
 
-            // std::cout << __func__ << ", " << simTime() << ", " << res["ch"].get<int>() << ", " << res["rri"].get<double>() << ", " << required_res << std::endl;
+            std::cout << __func__ << ", " << simTime() << ", " << res["ch"].get<int>() << ", " << res["rri"].get<double>() << ", " << past_res << ", " << required_res << std::endl;
             // ----- set is_required_more_cr -----
             if (res["ch"].get<int>() / res["rri"].get<double>() < required_res) {
               is_required_more_cr = true;

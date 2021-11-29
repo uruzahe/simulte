@@ -117,6 +117,7 @@ protected:
    json attach_headers(json packet, json geocast_header, json rlc_header);
    json FacilityHandler (std::string cmd, json packet);
    json GeoNetworkHandler (std::string cmd, json packet);
+   json past_max_rri_and_max_ch();
    json RlcHandler (std::string cmd, json packet);
 
    // void SduHandler(json sdu);
@@ -152,6 +153,7 @@ protected:
 
    std::string veinsLockFile;
    std::string veinsTxtFile;
+   std::map<double, json> _time2ch_rri = {};
 
    uint32_t generatedCPMs;
    uint32_t receivedCPMs;
