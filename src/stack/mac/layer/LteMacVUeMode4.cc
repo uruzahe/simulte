@@ -751,7 +751,7 @@ void LteMacVUeMode4::handleMessage(cMessage *msg)
               res = this->formatted_resource(m4G->getNumSubchannels(), (m4G->getPeriod() * SLOT_2_MS / 100.0));
             }
 
-            std::cout << __func__ << ", " << simTime() << ", " << res["ch"].get<int>() << ", " << res["rri"].get<double>() << ", " << past_res << ", " << required_res << std::endl;
+            // std::cout << __func__ << ", " << simTime() << ", " << res["ch"].get<int>() << ", " << res["rri"].get<double>() << ", " << past_res << ", " << required_res << std::endl;
             // ----- set is_required_more_cr -----
             if (res["ch"].get<int>() / res["rri"].get<double>() < required_res) {
               is_required_more_cr = true;
@@ -1105,7 +1105,7 @@ void LteMacVUeMode4::macHandleSps(cPacket* pkt)
      * 4. return
      */
 
-    // // std::cout << __func__ << ", " << simTime() << "CSRs is 0 Begin." << std::endl;
+    // std::cout << __func__ << ", " << simTime() << "CSRs is 0 Begin." << std::endl;
     SpsCandidateResources* candidatesPacket = check_and_cast<SpsCandidateResources *>(pkt);
     std::vector<std::tuple<double, int, int>> CSRs = candidatesPacket->getCSRs();
 
@@ -1113,14 +1113,14 @@ void LteMacVUeMode4::macHandleSps(cPacket* pkt)
 
     // ----- Begin My Code -----
     if (CSRs.size() <= 0) {
-      // // std::cout << __func__ << ", " << simTime() << "CSRs is 0." << std::endl;
+      // std::cout << __func__ << ", " << simTime() << "CSRs is 0." << std::endl;
       schedulingGrant_ = PastschedulingGrant_;
       _time2ch_rri.erase(simTime().dbl());
       delete pkt;
       return;
     }
     ASSERT(0 < CSRs.size());
-    // // std::cout << __func__ << ", " << simTime() << "CSRs is 0 ASSERT." << std::endl;
+    // std::cout << __func__ << ", " << simTime() << "CSRs is 0 ASSERT." << std::endl;
     // ----- End My Code -----
 
     // Select random element from vector
@@ -1228,7 +1228,7 @@ void LteMacVUeMode4::macHandleSps(cPacket* pkt)
     pdu_make_info_pkt->setRri(mode4Grant->getPeriod() * SLOT_2_MS);
     // pdu_make_info_pkt->setRri(resourceReservationInterval_ * 100.0);
     pdu_make_info_pkt->setCh(mode4Grant->getNumSubchannels());
-    // // std::cout << __func__ << ", " << simTime() << ", mac rri: " << mode4Grant->getPeriod() * SLOT_2_MS << std::endl;
+    // std::cout << __func__ << ", " << simTime() << ", mac rri: " << mode4Grant->getPeriod() * SLOT_2_MS << std::endl;
     sendUpperPackets(pdu_make_info_pkt);
     // ----- Begin My Code -----
 
@@ -1250,7 +1250,7 @@ void LteMacVUeMode4::macGenerateSchedulingGrant(double maximumLatency, int prior
 
     // ----- Begin My Code -----
     resourceReservationInterval_ = _my_rri;
-    // // std::cout << __func__ << ", " << simTime() << ", resourceReservationInterval_: " << resourceReservationInterval_ << std::endl;
+    // std::cout << __func__ << ", " << simTime() << ", resourceReservationInterval_: " << resourceReservationInterval_ << std::endl;
     // ----- End My Code -----
 
     // Priority is the most difficult part to figure out, for the moment I will assign it as a fixed value

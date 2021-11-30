@@ -107,6 +107,7 @@ public:
   int _past_fragment_count = 0;
   // std::unordered_map<int, json> _priority2packets;
   std::map<int, json> _priority2packets;
+  std::map<int, json> _temporary_priority2packets;
 
   int _packet_id;
   double _delete_expired_time;
@@ -138,6 +139,7 @@ public:
   json add_fragment_into_pdu(json pdu, json send_fragment, double current_time);
   void delete_expired_fragments(double current_time);
   bool enque(json packet, double current_time, double min_duration);
+  bool enque_temporary(json packet, double current_time, double min_duration);
   // json formatted_packet(std::string payload, std::string type, int payload_byte_size, double current_time, double duration);
   json formatted_fragment(json packet, int leftted_size, int status_flag, int start_byte, int end_byte);
   json formatted_pdu(int maximum_size, double current_time);
@@ -151,8 +153,11 @@ public:
 
   bool is_empty(double current_time);
   double maximum_duration(double current_time);
+  double maximum_duration_temporary(double current_time);
   double resource_selection_time(double current_time);
   json get_duration_size_rri(double current_time, double maximum_duration);
+
+  json get_duration_size_rri_temporary(double current_time, double maximum_duration);
 };
 
 struct LogData {
