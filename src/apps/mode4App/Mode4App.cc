@@ -118,6 +118,7 @@ void Mode4App::initialize(int stage)
         // _pdu_sender->setSchedulingPriority(10);
 
         _pdu_interval = 0.1;
+        _selfsender_log = simTime();
 
         // _removeDataFromQueue = new cMessage("_removeDataFromQueue");
         // _removeDataFromQueue->setSchedulingPriority(10);
@@ -170,6 +171,7 @@ void Mode4App::scheduleHandler(simtime_t t, cMessage * msg) {
     std::vector<simtime_t> tmp;
     tmp.push_back(_f_resource_selection->getArrivalTime());
     tmp.push_back(_pdu_sender->getArrivalTime());
+    // tmp.push_back(this->_selfsender_log + period_);
     tmp.push_back(t);
 
     simtime_t min_t = *std::min_element(tmp.begin(), tmp.end());
@@ -180,38 +182,6 @@ void Mode4App::scheduleHandler(simtime_t t, cMessage * msg) {
     } else {
       min_t = simTime();
     }
-
-    // if ((simtime_t) 0.095 <= _pdu_sender->getArrivalTime() - selfSender_->getArrivalTime()) {
-    // // if ((simtime_t) _current_rri <= _pdu_sender->getArrivalTime() - selfSender_->getArrivalTime()) {
-    //   scheduleAt(min_t, msg);
-    // }
-
-    // std::cout << __func__ << ", " << simTime() << ", sumo_id: " << sumo_id << ", arrive: " << _pdu_sender->getArrivalTime() << std::endl;
-    // if (t <= _pdu_sender->getArrivalTime()) {
-    //   scheduleAt(t, msg);
-    //
-    // } else {
-    //   scheduleAt((simTime() + _pdu_sender->getArrivalTime()) / 2.0, msg);
-    // }
-
-    // simtime_t begin_unselect_time = _pdu_sender->getArrivalTime() - _sdu_tx_ptr->_min_rri / 2.0;
-    //
-    // if (t <= begin_unselect_time || _pdu_sender->getArrivalTime() < t) {
-    //   scheduleAt(t, msg);
-    //
-    // } else {
-    //   if (simTime() <= begin_unselect_time ) {
-    //     scheduleAt(begin_unselect_time, msg);
-    //
-    //   } else if (begin_unselect_time < simTime() && simTime() <= _pdu_sender->getArrivalTime()) {
-    //     scheduleAt(_pdu_sender->getArrivalTime() + _pdu_interval / 2.0, msg);
-    //
-    //   } else {
-    //     // std::cout << __func__ << ", No such time" << ", arrive time: " << _pdu_sender->getArrivalTime() << ", now: " << simTime() << ", t: " << t << std::endl;
-    //     throw cRuntimeError(0);
-    //
-    //   }
-    // }
 
   } else if (!strcmp(msg->getName(), "_pdu_sender")) {
     if (t - 2 * TTI <= simTime()) {
@@ -307,6 +277,8 @@ json Mode4App::FacilityHandler (std::string cmd, json packet={}) {
   json result = {};
 
   if (cmd == "FromGeocast") {
+    myHandleLowerMessage(packet["payload"].get<std::string>(), packet["type"].get<std::string>(), packet["send_time"].get<double>(), simTime().dbl());
+
     return packet;
 
   } else if (cmd == "ToGeocast") {
@@ -329,20 +301,17 @@ json Mode4App::GeoNetworkHandler (std::string cmd, json packet={}) {
     return this->RlcHandler("FromGeocast", _network_ptr->enque(packet, simTime().dbl()));
 
   } else if (cmd == "FromRlc") {
+    if (!_network_ptr->is_already_received(packet)) {
+      packet["size"] = packet["size"].get<int>() - MY_GEONETWORK_HEADER;
+      this->FacilityHandler("FromGeocast", packet);
+    }
+
     _network_ptr->enque(packet, simTime().dbl());
 
     double resend_time = (int) (_network_ptr->CBF_resend_time(packet, mobility->getCurrentPosition(), simTime().dbl()) / TTI) * TTI;
     // std::cout << __func__ << ", resend_time: " << resend_time << ", packet: " << packet << std::endl;
 
     bool is_send = (simTime() < (simtime_t) resend_time);
-    // if (this->_method_name == "proposed") {
-    //   simtime_t max_contention = (((simtime_t) packet["geocast"]["expired_time"].get<double>() - simTime()) - (_pdu_sender->getArrivalTime() - simTime()));
-    //   if ((simtime_t) resend_time <= simTime() + max_contention) {
-    //     is_send = true;
-    //   } else {
-    //     is_send = false;
-    //   }
-    // }
 
     if (simTime() < (simtime_t) resend_time && is_send) {
       // !!!!! Tips, change priority !!!!!
@@ -355,8 +324,7 @@ json Mode4App::GeoNetworkHandler (std::string cmd, json packet={}) {
       this->GeoNetworkHandler("ReSendSchedule", {});
     }
 
-    packet["size"] = packet["size"].get<int>() - MY_GEONETWORK_HEADER;
-    return this->FacilityHandler("FromGeocast", packet);
+
 
   } else if (cmd == "ReSend") {
     std::vector<json> resend_packets = _network_ptr->resend_deque(simTime().dbl());
@@ -524,14 +492,14 @@ void Mode4App::SdusHandler(std::vector<json> sdus, double send_time, double recv
     status_flag = (*itr)["status_flag"].get<int>();
 
     if (status_flag == 11) {
-      myHandleLowerMessage((*itr)["payload"].get<std::string>(), (*itr)["type"].get<std::string>(), send_time, recv_time);
+      // myHandleLowerMessage((*itr)["payload"].get<std::string>(), (*itr)["type"].get<std::string>(), send_time, recv_time);
       this->RlcHandler("ToGeocast", (*itr));
 
     } else {
       json packet = _sdu_rx_ptr->enque_and_decode((*itr), simTime().dbl());
 
       if (packet != NULL) {
-        myHandleLowerMessage(packet["payload"].get<std::string>(), packet["type"].get<std::string>(), send_time, recv_time);
+        // myHandleLowerMessage(packet["payload"].get<std::string>(), packet["type"].get<std::string>(), send_time, recv_time);
         this->RlcHandler("ToGeocast", packet);
 
       }
@@ -656,7 +624,7 @@ void Mode4App::handleLowerMessage(cMessage* msg)
 
 void Mode4App::handleSelfMessage(cMessage* msg)
 {
-    if (!strcmp(msg->getName(), "selfSender")){
+    if (!strcmp(msg->getName(), "selfSender")) {
         if (sendBeacons) {
             // std::cout << simTime() << std::endl;
             // Replace method
@@ -691,6 +659,7 @@ void Mode4App::handleSelfMessage(cMessage* msg)
           {"type", "selfSender"}
         };
         this->_grant_rec_logs.push_back(log.dump());
+        this->_selfsender_log = simTime();
         // scheduleHandler(simTime() + period_, selfSender_);
 
     } else if (!strcmp(msg->getName(), "_pdu_sender")) {
@@ -844,6 +813,7 @@ void Mode4App::SendPacket(std::string payload, std::string type, int payload_byt
     packet["max_duration"] = 100;
     packet["min_duration"] = 20; // For ensuring grant in Mac layer.
     packet["expired_time"] = simTime().dbl() + MY_PACKET_LIFE_TIME;
+    packet["send_time"] = simTime().dbl();
 
     if (type == "cam") {
       packet["priority"] = 2;

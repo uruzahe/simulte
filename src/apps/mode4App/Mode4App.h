@@ -149,6 +149,7 @@ protected:
    VirtualTxSduQueue* _sdu_tx_ptr;
    VirtualRxSduQueue* _sdu_rx_ptr;
    simtime_t _pdu_interval;
+   simtime_t _selfsender_log = 0;
    cMessage* _pdu_sender;
 
    std::string veinsLockFile;

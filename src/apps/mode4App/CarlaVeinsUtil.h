@@ -198,7 +198,8 @@ public:
   // double _TO_CBF_MAX = 0.1;
   double _TO_CBF_MAX = 0.010;
 
-  double _DIST_MAX = 1000;
+  // double _DIST_MAX = 1000;
+  double _DIST_MAX = 500;
   // double _DIST_MAX = 400;
   // double _DIST_MAX = 0;
 
