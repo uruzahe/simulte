@@ -124,6 +124,11 @@ class LtePhyVUeMode4 : public LtePhyUeD2D
     void storeAirFrame(LteAirFrame* newFrame);
     LteAirFrame* extractAirFrame();
     void decodeAirFrame(LteAirFrame* frame, UserControlInfo* lteInfo, std::vector<double> &rsrpVector, std::vector<double> &rssiVector, std::vector<double> &sinrVector, double &attenuation);
+
+    // ----- Begin My Code -----
+    bool _use_sae_cc;
+    void updateTxPowerBasedOnSAE(double current_cbr);
+    // ----- End My Code -----
     // ---------------------------------------------------------------- //
 
     virtual void initialize(int stage);
@@ -168,4 +173,3 @@ class LtePhyVUeMode4 : public LtePhyUeD2D
         return txPower_;
     }
 };
-

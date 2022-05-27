@@ -69,6 +69,13 @@ public:
 
 };
 
+class MCMHandler : JsonDataStore
+{
+
+public:
+  json generate_dummy_message(int message_size, std::string payload);
+};
+
 class CAMRecvHandler : public CAMHandler
 {
 };
@@ -97,6 +104,11 @@ class PORecvHandler : public POHandler
 };
 
 class POSendHandler : public POHandler
+{
+};
+
+
+class MCMSendHandler : public MCMHandler
 {
 };
 

@@ -132,6 +132,7 @@ protected:
    bool is_dynamic_simulation;
    bool sendCPM;
    bool sendBeacons;
+   bool _sendMCM;
    bool _will_be_expired = true;
    cMessage* sendCPMEvt;
    double carlaTimeStep;
@@ -161,6 +162,8 @@ protected:
 
    int _sensor_num;
    int _max_cpm_size;
+
+   int _mcm_size;
 
    CAMs*  _cams_ptr;
    PerceivedObjectes* _pos_ptr;

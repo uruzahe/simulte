@@ -29,11 +29,13 @@ simple Mode4App like Mode4BaseApp
         // ----- Begin My Params -----
         bool sendBeacons = default(true);
         bool sendCPM = default(false);
+        bool sendMCM = default(false);
         double carlaTimeStep = default(0.1s) @unit(s);
         string carlaVeinsDataDir = default("/vagrant/carla-veins-data/");
         bool is_dynamic_simulation = default(false);
         int sensor_num = default(4);
         int max_cpm_size = default(450);
+        int mcm_size = default(600);
         int max_hop = default(10);
         string method_name = default("proposed");
         // ----- End My Params -----

@@ -203,6 +203,17 @@ json POHandler::convert_payload_and_size(std::vector<json> perceived_objects, in
 }
 // ----- End: POHandler -----
 
+// ----- Begin MCMHandler -----
+json MCMHandler::generate_dummy_message(int message_size, std::string message_payload)
+{
+  json result;
+
+  result["size"] = message_size;
+  result["payload"] = message_payload;
+
+  return result;
+}
+
 // ----- Begin: VirtualTxSduQueue -----
 VirtualTxSduQueue::VirtualTxSduQueue()
 {
@@ -1225,7 +1236,7 @@ std::vector<json> VirtualGeoNetwork::resend_deque_by_resource(double current_tim
       auto jtr = itr->second.begin();
 
       while (jtr != itr->second.end()) {
-        std::cout << (*jtr) << std::endl;
+        // std::cout << (*jtr) << std::endl;
         // std::cout << __func__ << ", duration: " << duration << ", expired_time: " << (*jtr)["geocast"]["expired_time"].get<double>() << ", current_time: " << current_time << ", total_size: " << total_size << ", leftted_size: " << lefted_size << std::endl;
 
         // if (!this->is_resend(*jtr)) {

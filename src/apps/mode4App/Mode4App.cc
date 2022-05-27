@@ -84,6 +84,7 @@ void Mode4App::initialize(int stage)
         EV_TRACE << "My Code" << std::endl;
 
         _max_cpm_size = par("max_cpm_size").intValue() - ALL_HEADER_SIZE;
+        _mcm_size = par("mcm_size").intValue() - ALL_HEADER_SIZE;
         carlaVeinsDataDir = par("carlaVeinsDataDir").stringValue();
         _sensor_num = par("sensor_num").intValue();
         sendCPM = par("sendCPM").boolValue();
@@ -105,6 +106,9 @@ void Mode4App::initialize(int stage)
         _pos_ptr = new PerceivedObjectes;
         _pos_send_ptr = new POSendHandler;
         _pos_recv_ptr = new PORecvHandler;
+
+        _sendMCM = par("sendMCM").boolValue();
+        // _mcm_send_ptr = new MCMSendHandler;
 
         // ----- Virtual Network Layer -----
         _network_ptr = new VirtualGeoNetwork;
@@ -530,9 +534,10 @@ void Mode4App::myHandleLowerMessage(std::string payload, std::string type, doubl
   } else if (type == "pdu") {
     SdusHandler(json::parse(payload)["sdus"].get<std::vector<json>>(), send_time, recv_time);
 
+  } else if (type == "mcm") {
+    // do nothing at current phase.
   } else {
-    ASSERT(type == "cam" || type == "cpm" || type == "pdu");
-
+    ASSERT(type == "cam" || type == "cpm" || type == "mcm" || type == "pdu");
   }
 
   // std::cout << "end: " << __func__ << std::endl;
@@ -545,7 +550,7 @@ void Mode4App::handleLowerMessage(cMessage* msg)
         Cbr* cbrPkt = check_and_cast<Cbr*>(msg);
         double channel_load = cbrPkt->getCbr();
         json log = { {"time", simTime().dbl() }, {"cbr", channel_load} };
-        // std::cout << __func__ << ", " << simTime() << ", cbr: " << channel_load << std::endl;
+        std::cout << __func__ << ", " << simTime() << ", cbr: " << channel_load << std::endl;
         this->_cbr_logs.push_back(log.dump());
         emit(cbr_, channel_load);
         delete cbrPkt;
@@ -803,7 +808,7 @@ void Mode4App::SendPacket(std::string payload, std::string type, int payload_byt
         // std::cout << "appQueue error: "<< payload.c_str() << "." << std::endl;
     }
 
-  } else if (type == "cam" || type == "cpm") {
+  } else if (type == "cam" || type == "cpm" || "mcm") {
     json packet;
     packet["payload"] = payload;
     packet["type"] = type;
@@ -815,12 +820,14 @@ void Mode4App::SendPacket(std::string payload, std::string type, int payload_byt
     packet["expired_time"] = simTime().dbl() + MY_PACKET_LIFE_TIME;
     packet["send_time"] = simTime().dbl();
 
-    if (type == "cam") {
+    if (type == "mcm") {
+      packet["priority"] = 1;
+    } else if (type == "cam") {
       packet["priority"] = 2;
     } else if (type == "cpm") {
       packet["priority"] = 3;
     } else {
-      ASSERT(type == "cam" || type == "cpm");
+      ASSERT(type == "cam" || type == "cpm" || type == "mcm");
     }
 
     // this->StachSendEnque(packet);
@@ -869,18 +876,24 @@ void Mode4App::syncCarlaVeinsData(cMessage* msg)
     loadCarlaVeinsData(false);
   }
 
+  // ----- CAMs -----
   std::vector<json> target_cams = _cams_send_ptr->filter_cams_by_etsi(_cams_ptr->data_between_time(target_start_time, target_end_time));
-
   if (!target_cams.empty()) {
     json packet = _cams_send_ptr->convert_payload_and_size(target_cams[0], size_);
 
     SendPacket(packet["payload"].get<std::string>(), "cam", packet["size"].get<int>(), duration_, false);
 
     // return;
+
+    // ----- MCMs -----
+    // ----- At temprary, we send the cam as MCM -----
+    if (_sendMCM) {
+      SendPacket(packet["payload"].get<std::string>(), "mcm", _mcm_size, duration_, false);
+    }
   }
 
+  // ----- CPMs -----
   std::vector<json> target_pos = _pos_send_ptr->filter_pos_by_etsi(_pos_ptr->data_between_time(target_start_time, target_end_time));
-
   if (!target_pos.empty()) {
     json packet = _pos_send_ptr->convert_payload_and_size(target_pos, _sensor_num, _max_cpm_size);
     // // std::cout << packet["payload"].get<std::string>() << std::endl;
@@ -903,7 +916,7 @@ void Mode4App::resource_selection() {
   bool is_sdu_empty = isSduQueueEmpty();
 
   // std::cout << __func__ << ", " << simTime() << ", sumo_id: " << sumo_id << is_sdu_empty << _sdu_tx_ptr->is_empty(simTime().dbl())  << is_reservable_time << std::endl;
-  std::cout << _sdu_tx_ptr->_min_rri << ", " << _pdu_sender->getArrivalTime() << std::endl;
+  // std::cout << _sdu_tx_ptr->_min_rri << ", " << _pdu_sender->getArrivalTime() << std::endl;
   if ((is_sdu_empty && _sdu_tx_ptr->is_empty(simTime().dbl()) == false) && (this->_will_be_expired || is_reservable_time)) {
     pdu_info = _sdu_tx_ptr->get_duration_size_rri(
       simTime().dbl(),

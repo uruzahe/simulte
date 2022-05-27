@@ -62,6 +62,10 @@ void LtePhyVUeMode4::initialize(int stage)
             d2dTxPower_ = txPower_;
         }
 
+        // ----- Begin My Code -----
+        _use_sae_cc = par("use_sae_cc");
+        // ----- End My Code -----
+
         // The threshold has a size of 64, and allowable values of 0 - 66
         // Deciding on this for now as it makes the most sense (low priority for both then more likely to take it)
         // High priority for both then less likely to take it.
@@ -1218,6 +1222,29 @@ LteAirFrame* LtePhyVUeMode4::prepareAirFrame(cMessage* msg, UserControlInfo* lte
     return frame;
 }
 
+// ----- Begin My Code -----
+void LtePhyVUeMode4::updateTxPowerBasedOnSAE(double current_cbr) {
+  double max_pw = 23;
+  double min_pw = 10;
+
+  double low_cbr = 0.5;
+  double high_cbr = 0.8;
+
+  double result = max_pw;
+
+  if (current_cbr <= low_cbr) {
+    result = max_pw;
+  } else if (high_cbr <= current_cbr) {
+    result = min_pw;
+  } else {
+    result =  max_pw - (max_pw - min_pw) / (high_cbr - low_cbr) * (current_cbr - low_cbr);
+  }
+
+  txPower_ = result;
+  d2dTxPower_ = result;
+}
+// ----- End My Code -----
+
 void LtePhyVUeMode4::storeAirFrame(LteAirFrame* newFrame)
 {
     // implements the capture effect
@@ -1640,6 +1667,12 @@ void LtePhyVUeMode4::updateCBR()
     Cbr* cbrPkt = new Cbr("CBR");
     cbrPkt->setCbr(cbrValue);
     send(cbrPkt, upperGateOut_);
+
+    // ----- Begin My Code -----
+    if (_use_sae_cc) {
+      this->updateTxPowerBasedOnSAE(cbrValue);
+    }
+    // ----- End My Code -----
 }
 
 void LtePhyVUeMode4::updateSubframe()
