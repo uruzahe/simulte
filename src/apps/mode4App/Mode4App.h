@@ -174,6 +174,11 @@ protected:
    CAMRecvHandler* _cams_recv_ptr;
    PORecvHandler* _pos_recv_ptr;
 
+   double _channel_load;
+   bool _is_under_3gpp_cc;
+   bool _use_3gpp_cc;
+   CC3GPPHandler* _3gpp_cc_ptr;
+
    double _current_rri = 0.1;
    double _current_ch = 1;
 

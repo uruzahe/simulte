@@ -83,6 +83,7 @@ void Mode4App::initialize(int stage)
         // ----- My Code, Begin. -----
         EV_TRACE << "My Code" << std::endl;
 
+        _channel_load = 0.0;
         _max_cpm_size = par("max_cpm_size").intValue() - ALL_HEADER_SIZE;
         _mcm_size = par("mcm_size").intValue() - ALL_HEADER_SIZE;
         carlaVeinsDataDir = par("carlaVeinsDataDir").stringValue();
@@ -106,6 +107,10 @@ void Mode4App::initialize(int stage)
         _pos_ptr = new PerceivedObjectes;
         _pos_send_ptr = new POSendHandler;
         _pos_recv_ptr = new PORecvHandler;
+
+        _is_under_3gpp_cc = false;
+        _use_3gpp_cc = par("use_3gpp_cc");
+        _3gpp_cc_ptr = new CC3GPPHandler;
 
         _sendMCM = par("sendMCM").boolValue();
         // _mcm_send_ptr = new MCMSendHandler;
@@ -548,11 +553,11 @@ void Mode4App::handleLowerMessage(cMessage* msg)
     // std::cout << "received msg: " << msg->getName() << std::endl;
     if (msg->isName("CBR")) {
         Cbr* cbrPkt = check_and_cast<Cbr*>(msg);
-        double channel_load = cbrPkt->getCbr();
-        json log = { {"time", simTime().dbl() }, {"cbr", channel_load} };
-        std::cout << __func__ << ", " << simTime() << ", cbr: " << channel_load << std::endl;
+        _channel_load = cbrPkt->getCbr();
+        json log = { {"time", simTime().dbl() }, {"cbr", _channel_load} };
+        std::cout << __func__ << ", " << simTime() << ", cbr: " << _channel_load << std::endl;
         this->_cbr_logs.push_back(log.dump());
-        emit(cbr_, channel_load);
+        emit(cbr_, _channel_load);
         delete cbrPkt;
 
     } else if (msg->isName("PduMakeInfo")){
@@ -931,9 +936,36 @@ void Mode4App::resource_selection() {
       // std::cout << __func__ << ", " << simTime() << ", sumo_id: " << sumo_id << ", pdu_info: " << pdu_info << ", past_pdu_info: " << past_pdu_info << ", res time: " << _pdu_sender->getArrivalTime() << std::endl;
     }
 
-    // std::cout << __func__ << ", " << simTime() << ", sumo_id: " << sumo_id << ", pdu_info: " << pdu_info << ", res time: " << _pdu_sender->getArrivalTime() << std::endl;
-    is_required_more_cr = (_current_ch / _current_rri < pdu_info["ch"].get<int>() / pdu_info["rri"].get<double>());
-    is_short_duration = (simtime_t) pdu_info["duration"].get<double>() < _pdu_sender->getArrivalTime() - simTime();
+    // ----- 3gpp の輻輳制御 -----
+    bool is_congested_by_3gpp = false;
+
+    if (this->_will_be_expired) {
+      _is_under_3gpp_cc = false;
+    }
+    
+    if (_use_3gpp_cc) {
+      double crlimit = _3gpp_cc_ptr->cbr2crlimit(_channel_load);
+      is_congested_by_3gpp = (crlimit < _3gpp_cc_ptr->rrich2occupancy(pdu_info["rri"].get<double>(), pdu_info["ch"].get<int>()));
+
+      std::cout << __func__ << ", time: " << simTime() << ", _channel_load: " << _channel_load << ", crlimit: " << crlimit << ", is_congested_by_3gpp: " << is_congested_by_3gpp << ", ocupancy: " << _3gpp_cc_ptr->rrich2occupancy(pdu_info["rri"].get<double>(), pdu_info["ch"].get<int>()) << std::endl;
+      if (is_congested_by_3gpp) {
+        json limit_pdu_info = _3gpp_cc_ptr->crlimit2resource(crlimit, pdu_info);
+        pdu_info["ch"] = limit_pdu_info["ch"].get<int>();
+        pdu_info["rri"] = limit_pdu_info["rri"].get<double>();
+
+        _is_under_3gpp_cc = true;
+        std::cout << __func__ << ", time: " << simTime() << ", pdu_info: " << limit_pdu_info << ", crlimit: " << crlimit << ", is_congested_by_3gpp: " << is_congested_by_3gpp << std::endl;
+      }
+    }
+
+    if (_is_under_3gpp_cc) {
+      is_required_more_cr = false;
+      is_short_duration = false;
+    } else {
+      // std::cout << __func__ << ", " << simTime() << ", sumo_id: " << sumo_id << ", pdu_info: " << pdu_info << ", res time: " << _pdu_sender->getArrivalTime() << std::endl;
+      is_required_more_cr = (_current_ch / _current_rri < pdu_info["ch"].get<int>() / pdu_info["rri"].get<double>());
+      is_short_duration = (simtime_t) pdu_info["duration"].get<double>() < _pdu_sender->getArrivalTime() - simTime();
+    }
 
     pdu_info["type"] = "resource_selection";
     pdu_info["time"] = simTime().dbl();

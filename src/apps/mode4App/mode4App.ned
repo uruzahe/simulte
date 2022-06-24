@@ -30,6 +30,7 @@ simple Mode4App like Mode4BaseApp
         bool sendBeacons = default(true);
         bool sendCPM = default(false);
         bool sendMCM = default(false);
+        bool use_3gpp_cc = default(false);
         double carlaTimeStep = default(0.1s) @unit(s);
         string carlaVeinsDataDir = default("/vagrant/carla-veins-data/");
         bool is_dynamic_simulation = default(false);

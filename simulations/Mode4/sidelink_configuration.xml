@@ -10,6 +10,15 @@
 
 		<RestrictResourceReservationPeriodList>
 			<RestrictResourceReservationPeriod>
+				<parameter name="rri" type="double" value="10"/>
+				<parameter name="rri" type="double" value="9"/>
+				<parameter name="rri" type="double" value="8"/>
+				<parameter name="rri" type="double" value="7"/>
+				<parameter name="rri" type="double" value="6"/>
+				<parameter name="rri" type="double" value="5"/>
+				<parameter name="rri" type="double" value="4"/>
+				<parameter name="rri" type="double" value="3"/>
+				<parameter name="rri" type="double" value="2"/>
 				<parameter name="rri" type="double" value="1"/>
 				<parameter name="rri" type="double" value="0.5"/>
 				<parameter name="rri" type="double" value="0.2"/>

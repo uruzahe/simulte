@@ -214,6 +214,57 @@ json MCMHandler::generate_dummy_message(int message_size, std::string message_pa
   return result;
 }
 
+// ----- Begin CC3GPPHandler -----
+CC3GPPHandler::CC3GPPHandler()
+{
+  for (auto ch_ptr = _possible_channels.begin(); ch_ptr != _possible_channels.end(); ch_ptr++) {
+    for (auto rri_ptr = _possible_rris.begin(); rri_ptr != _possible_rris.end(); rri_ptr++) {
+      _crlimit2resources[((*ch_ptr) / (*rri_ptr)) / (1.0 / TTI)] = {
+        {"ch", (*ch_ptr)},
+        {"rri", (*rri_ptr)}
+      };
+    }
+  }
+}
+
+double CC3GPPHandler::cbr2crlimit(double cbr)
+{
+  double offset = 0.5;
+  cbr = cbr + offset;
+
+  if (cbr <= 0.65) { return 1.0; }
+  else if (cbr <= 0.675) { return 1.6 / 1000.0; }
+  else if (cbr <= 0.700) { return 1.5 / 1000.0; }
+  else if (cbr <= 0.725) { return 1.4 / 1000.0; }
+  else if (cbr <= 0.750) { return 1.3 / 1000.0; }
+  else if (cbr <= 0.800) { return 1.2 / 1000.0; }
+  else if (cbr <= 0.825) { return 1.1 / 1000.0; }
+  else if (cbr <= 0.850) { return 1.0 / 1000.0; }
+  else if (cbr <= 0.875) { return 0.9 / 1000.0; }
+  else { return 0.8 / 1000.0; }
+}
+
+double CC3GPPHandler::rrich2occupancy(double rri, int ch)
+{
+  return (ch / rri) / (1.0 / TTI);
+}
+
+json CC3GPPHandler::crlimit2resource(double crlimit, json default_resource)
+{
+  json result = default_resource;
+
+  for (auto cr_ptr = _crlimit2resources.begin(); cr_ptr != _crlimit2resources.end(); cr_ptr++) {
+    if (crlimit <= cr_ptr->first) {
+      break;
+    } else {
+      result = cr_ptr->second;
+    }
+  }
+
+  return result;
+}
+// ----- End CC3GPPHandler -----
+
 // ----- Begin: VirtualTxSduQueue -----
 VirtualTxSduQueue::VirtualTxSduQueue()
 {
