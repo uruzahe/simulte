@@ -13,7 +13,7 @@ bool JsonDataStore::is_empty(){
 
 void JsonDataStore::load_json_str(std::string json_str){
   try {
-    // // std::cout << json_str << std::endl;
+    // std::cout << __func__ << "," << json_str << std::endl;
     _data.push_back(json::parse(json_str));
 
   } catch (...) {
@@ -26,8 +26,15 @@ void JsonDataStore::load_json_strs(std::vector<std::string> json_strs){
     load_json_str(*data_pointer);
   }
 
+}
+
+void JsonDataStore::load_json_strs_by_time(std::vector<std::string> json_strs, float begin_time, float end_time){
+  for (auto data_pointer = json_strs.begin(); data_pointer != json_strs.end(); data_pointer++) {
+    load_json_str(*data_pointer);
+  }
+
   // ----- For unloding too many data -----
-  _data = this->data_between_time(149, 170);
+  _data = this->data_between_time(begin_time, end_time);
 }
 
 

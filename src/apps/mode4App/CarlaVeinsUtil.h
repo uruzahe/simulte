@@ -43,6 +43,7 @@ public:
   bool is_empty();
   void load_json_str(std::string json_str);
   void load_json_strs(std::vector<std::string> json_strs);
+  void load_json_strs_by_time(std::vector<std::string> json_strs, float begin_time, float end_time);
   std::vector<json> pop_all();
   json pop_back();
   void push_back(json data);

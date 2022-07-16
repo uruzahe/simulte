@@ -751,7 +751,7 @@ void LteMacVUeMode4::handleMessage(cMessage *msg)
               res = this->formatted_resource(m4G->getNumSubchannels(), (m4G->getPeriod() * SLOT_2_MS / 100.0));
             }
 
-            // std::cout << __func__ << ", " << simTime() << ", " << res["ch"].get<int>() << ", " << res["rri"].get<double>() << ", " << past_res << ", " << required_res << std::endl;
+            std::cout << __func__ << ", " << simTime() << ", " << res["ch"].get<int>() << ", " << res["rri"].get<double>() << ", " << past_res << ", " << required_res << std::endl;
             // ----- set is_required_more_cr -----
             if (res["ch"].get<int>() / res["rri"].get<double>() < required_res) {
               is_required_more_cr = true;
@@ -772,6 +772,7 @@ void LteMacVUeMode4::handleMessage(cMessage *msg)
               _my_channel_num = res["ch"].get<int>();
               _my_rri = res["rri"].get<double>();
             }
+            std::cout << __func__ << ", _my_rri: " << _my_rri << std::endl;
 
             if ((std::string) lteInfo->getType() == "reselection") {
               _time2ch_rri[simTime().dbl()] = (json){ {"ch", lteInfo->getMyChannelNum()}, {"rri", lteInfo->getMyRri()} };
@@ -1228,7 +1229,7 @@ void LteMacVUeMode4::macHandleSps(cPacket* pkt)
     pdu_make_info_pkt->setRri(mode4Grant->getPeriod() * SLOT_2_MS);
     // pdu_make_info_pkt->setRri(resourceReservationInterval_ * 100.0);
     pdu_make_info_pkt->setCh(mode4Grant->getNumSubchannels());
-    // std::cout << __func__ << ", " << simTime() << ", mac rri: " << mode4Grant->getPeriod() * SLOT_2_MS << std::endl;
+    std::cout << __func__ << ", " << simTime() << ", periodCounter_: " << periodCounter_ << ", mac rri: " << mode4Grant->getPeriod() * SLOT_2_MS << std::endl;
     sendUpperPackets(pdu_make_info_pkt);
     // ----- Begin My Code -----
 
@@ -1250,14 +1251,33 @@ void LteMacVUeMode4::macGenerateSchedulingGrant(double maximumLatency, int prior
 
     // ----- Begin My Code -----
     resourceReservationInterval_ = _my_rri;
-    // std::cout << __func__ << ", " << simTime() << ", resourceReservationInterval_: " << resourceReservationInterval_ << std::endl;
+    std::cout << __func__ << ", " << simTime() << ", resourceReservationInterval_: " << resourceReservationInterval_ << std::endl;
     // ----- End My Code -----
 
     // Priority is the most difficult part to figure out, for the moment I will assign it as a fixed value
     mode4Grant -> setSpsPriority(priority);
-    mode4Grant -> setPeriod(resourceReservationInterval_ * 100 * MS_2_SLOT);
+    // mode4Grant -> setPeriod((unsigned int)(resourceReservationInterval_ * 100.0 * MS_2_SLOT));
+    mode4Grant -> setPeriod(stoi(std::to_string(resourceReservationInterval_ * 100.0 * MS_2_SLOT)));
     mode4Grant -> setMaximumLatency(maximumLatency);
     mode4Grant -> setPossibleRRIs(validResourceReservationIntervals_);
+
+    /* Since the vlaue of stoi(std::to_string(resourceReservationInterval_ * 100.0 * MS_2_SLOT)) sometimes chnage in the setPeriod method,
+    we once convert the value to string, and convert to int.
+
+    ----- Debug -----
+    std::cout << __func__ << ", " << simTime() << ", getPeriod: " << mode4Grant->getPeriod()
+      << ", default: " << resourceReservationInterval_ * 100.0 * MS_2_SLOT
+      << ", string defalt: " << std::to_string(resourceReservationInterval_ * 100.0 * MS_2_SLOT)
+      << ", atoi defalt: " << stoi(std::to_string(resourceReservationInterval_ * 100.0 * MS_2_SLOT))
+      << ", unsigned int atoi defalt: " << (unsigned int)stoi(std::to_string(resourceReservationInterval_ * 100.0 * MS_2_SLOT))
+      << ", unsigned defalt: " << (unsigned int)(resourceReservationInterval_ * 100.0 * MS_2_SLOT)
+      << ", int defalt: " << (int)(resourceReservationInterval_ * 100.0 * MS_2_SLOT)
+      << ", unsign int int defalt: " << (unsigned int)(int)(resourceReservationInterval_ * 100.0 * MS_2_SLOT)
+      << ", double defalt: " << (double)(resourceReservationInterval_ * 100.0 * MS_2_SLOT)
+      << ", unsign int double defalt: " << (unsigned int)(double)(resourceReservationInterval_ * 100.0 * MS_2_SLOT)
+    << std::endl;
+    */
+
 
     int minSubchannelNumberPSSCH = minSubchannelNumberPSSCH_;
     int maxSubchannelNumberPSSCH = maxSubchannelNumberPSSCH_;

@@ -123,6 +123,7 @@ protected:
    // void SduHandler(json sdu);
    void myHandleLowerMessage(std::string payload, std::string type, double send_time, double recv_time);
    virtual void loadCarlaVeinsData(bool read_only);
+   virtual void loadCarlaVeinsDataByTime(bool read_only, float begin_time, float end_time);
    virtual void syncCarlaVeinsData(cMessage* msg);
 
    veins::VeinsInetMobility* mobility;
