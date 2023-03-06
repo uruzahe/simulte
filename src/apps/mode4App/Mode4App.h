@@ -168,9 +168,11 @@ protected:
 
    CAMs*  _cams_ptr;
    PerceivedObjectes* _pos_ptr;
+   MCMs* _mcms_ptr;
 
    CAMSendHandler* _cams_send_ptr;
    POSendHandler* _pos_send_ptr;
+   MCMSendHandler* _mcms_send_ptr;
 
    CAMRecvHandler* _cams_recv_ptr;
    PORecvHandler* _pos_recv_ptr;

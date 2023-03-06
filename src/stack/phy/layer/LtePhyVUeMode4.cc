@@ -1227,7 +1227,9 @@ void LtePhyVUeMode4::updateTxPowerBasedOnSAE(double current_cbr) {
   double max_pw = 23;
   double min_pw = 10;
 
-  double low_cbr = 0.5;
+  // double low_cbr = 0.5;
+  
+  double low_cbr = 0.3;
   double high_cbr = 0.8;
 
   double result = max_pw;

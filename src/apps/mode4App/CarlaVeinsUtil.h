@@ -41,6 +41,7 @@ public:
   std::vector<json> _data;
 
   bool is_empty();
+  int size();
   void load_json_str(std::string json_str);
   void load_json_strs(std::vector<std::string> json_strs);
   void load_json_strs_by_time(std::vector<std::string> json_strs, float begin_time, float end_time);
@@ -61,6 +62,11 @@ class PerceivedObjectes : public JsonDataStore
 
 };
 
+class MCMs : public JsonDataStore
+{
+
+};
+
 class CAMHandler : JsonDataStore
 {
 public:
@@ -68,13 +74,6 @@ public:
 
   json convert_payload_and_size(json cam, int max_payload_byte);
 
-};
-
-class MCMHandler : JsonDataStore
-{
-
-public:
-  json generate_dummy_message(int message_size, std::string payload);
 };
 
 class CAMRecvHandler : public CAMHandler
@@ -108,9 +107,17 @@ class POSendHandler : public POHandler
 {
 };
 
+class MCMHandler : JsonDataStore
+{
+
+public:
+  json generate_dummy_message(int message_size, std::string payload);
+};
 
 class MCMSendHandler : public MCMHandler
 {
+public:
+  json convert_payload_and_size(json mcm, int max_payload_byte);
 };
 
 class VirtualTxSduQueue
@@ -276,6 +283,10 @@ std::string cams_recv_json_file_path(std::string data_sync_dir, std::string sumo
 std::string cpms_json_file_path(std::string data_sync_dir, std::string sumo_id);
 
 std::string dup_count_file_path(std::string data_sync_dir, std::string sumo_id);
+
+std::string mcms_json_file_path(std::string data_sync_dir, std::string sumo_id);
+
+std::string mcms_recv_json_file_path(std::string data_sync_dir, std::string sumo_id);
 
 std::string objects_json_file_path(std::string data_sync_dir, std::string sumo_id);
 

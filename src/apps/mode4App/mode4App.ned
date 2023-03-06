@@ -36,7 +36,7 @@ simple Mode4App like Mode4BaseApp
         bool is_dynamic_simulation = default(false);
         int sensor_num = default(4);
         int max_cpm_size = default(450);
-        int mcm_size = default(600);
+        int mcm_size = default(800);
         int max_hop = default(10);
         string method_name = default("proposed");
         // ----- End My Params -----

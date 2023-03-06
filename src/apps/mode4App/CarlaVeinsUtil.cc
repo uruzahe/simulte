@@ -11,6 +11,10 @@ bool JsonDataStore::is_empty(){
   return _data.empty();
 }
 
+int JsonDataStore::size(){
+  return _data.size();
+}
+
 void JsonDataStore::load_json_str(std::string json_str){
   try {
     // std::cout << __func__ << "," << json_str << std::endl;
@@ -29,6 +33,7 @@ void JsonDataStore::load_json_strs(std::vector<std::string> json_strs){
 }
 
 void JsonDataStore::load_json_strs_by_time(std::vector<std::string> json_strs, float begin_time, float end_time){
+  // std::cout << __func__ << ", " << begin_time << ", " << end_time << std::endl;
   for (auto data_pointer = json_strs.begin(); data_pointer != json_strs.end(); data_pointer++) {
     load_json_str(*data_pointer);
   }
@@ -68,16 +73,16 @@ std::vector<json> JsonDataStore::data_between_time(double begin_time, double end
     double timestamp = d["timestamp"].get<double>();
 
     if (timestamp < begin_time) {
-      // // std::cout << "The packet is too old, so erase it." << std::endl;
+      // std::cout << "The packet is too old, so erase it." << std::endl;
       _data.erase(ptr);
 
     } else if (begin_time <= timestamp && timestamp < end_time) {
-      // // std::cout << "The packet is created now, so send it." << std::endl;
+      // std::cout << "The packet is created now, so send it." << std::endl;
       results.push_back(d);
       _data.erase(ptr);
 
     } else {
-      // // std::cout << "The packet should be sent in the next timestamp, so break" << std::endl;
+      // std::cout << "The packet should be sent in the next timestamp, so break" << std::endl;
       break;
 
     }
@@ -221,6 +226,20 @@ json MCMHandler::generate_dummy_message(int message_size, std::string message_pa
   return result;
 }
 
+json MCMSendHandler::convert_payload_and_size(json mcm, int max_payload_byte)
+{
+  json result;
+
+  result["payload"] = mcm.dump();
+  result["type"] = "mcm";
+  result["size"] = max_payload_byte;
+
+  // _data = {mcm};
+
+  return result;
+}
+
+
 // ----- Begin CC3GPPHandler -----
 CC3GPPHandler::CC3GPPHandler()
 {
@@ -236,8 +255,8 @@ CC3GPPHandler::CC3GPPHandler()
 
 double CC3GPPHandler::cbr2crlimit(double cbr)
 {
-  double offset = 0.5;
-  cbr = cbr + offset;
+  // double offset = 0.5;
+  // cbr = cbr + offset;
 
   if (cbr <= 0.65) { return 1.0; }
   else if (cbr <= 0.675) { return 1.6 / 1000.0; }
@@ -1393,6 +1412,16 @@ std::string cpms_json_file_path(std::string data_sync_dir, std::string sumo_id)
 {
   return data_sync_dir + sumo_id + "_cpms.json";
 
+}
+
+std::string mcms_json_file_path(std::string data_sync_dir, std::string sumo_id)
+{
+  return data_sync_dir + sumo_id + "_mcm.json";
+}
+
+std::string mcms_recv_json_file_path(std::string data_sync_dir, std::string sumo_id)
+{
+  return data_sync_dir + sumo_id + "_mcms_recv.json";
 }
 
 std::string objects_json_file_path(std::string data_sync_dir, std::string sumo_id)

@@ -751,7 +751,7 @@ void LteMacVUeMode4::handleMessage(cMessage *msg)
               res = this->formatted_resource(m4G->getNumSubchannels(), (m4G->getPeriod() * SLOT_2_MS / 100.0));
             }
 
-            std::cout << __func__ << ", " << simTime() << ", " << res["ch"].get<int>() << ", " << res["rri"].get<double>() << ", " << past_res << ", " << required_res << std::endl;
+            // std::cout << __func__ << ", " << simTime() << ", " << res["ch"].get<int>() << ", " << res["rri"].get<double>() << ", " << past_res << ", " << required_res << std::endl;
             // ----- set is_required_more_cr -----
             if (res["ch"].get<int>() / res["rri"].get<double>() < required_res) {
               is_required_more_cr = true;
@@ -772,7 +772,7 @@ void LteMacVUeMode4::handleMessage(cMessage *msg)
               _my_channel_num = res["ch"].get<int>();
               _my_rri = res["rri"].get<double>();
             }
-            std::cout << __func__ << ", _my_rri: " << _my_rri << std::endl;
+            // std::cout << __func__ << ", _my_rri: " << _my_rri << std::endl;
 
             if ((std::string) lteInfo->getType() == "reselection") {
               _time2ch_rri[simTime().dbl()] = (json){ {"ch", lteInfo->getMyChannelNum()}, {"rri", lteInfo->getMyRri()} };
